@@ -1,0 +1,34 @@
+# secrets
+.env
+secrets/
+agentic-project-*.json
+
+# private working files, not part of the submission
+CLAUDE.md
+ASE_AIML_Assignment.pdf
+docs/LEARNING_NOTES.md
+.claude/
+
+# run outputs and caches
+outputs/
+cache/
+
+# model weights (ultralytics downloads these on first run)
+*.pt
+
+# input videos are large
+data/videos/
+
+# python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+
+# editor / os
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store

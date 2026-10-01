@@ -1,0 +1,91 @@
+# All tunable numbers live here. Values marked "start value" are first guesses
+# and will be re-tuned once the real test video is recorded.
+
+sampling:
+  fps: 5              # bed events take seconds, so 5 fps is plenty and keeps YOLO cheap
+  max_width: 960      # downscale bigger frames before inference; pose still works fine at this size
+
+perception:
+  model: yolo11n-pose.pt     # nano is fast on a 4 GB GTX 1650 Ti; try yolo11s-pose.pt if keypoints are noisy
+  device: 0                  # GPU index, or "cpu"
+  imgsz: 640
+  det_conf: 0.35             # a bit lower than default so a person under a blanket still gets detected
+  iou: 0.5
+  tracker: bytetrack.yaml
+  # ByteTrack sometimes gives the patient a new ID after occlusion. If a new track
+  # appears close to where the patient was last seen, treat it as the same person.
+  relink_max_gap_sec: 3.0
+  relink_max_dist: 0.5       # in units of the last box height, so it works at any distance from camera
+
+features:
+  kp_min_conf: 0.3           # ignore individual keypoints below this; they are usually guessed
+  speed_window_sec: 1.0      # hip speed is measured over 1 s so single-frame jitter doesn't count as walking
+
+frame_rules:
+  min_kp_conf_mean: 0.35     # below this the pose is unreliable -> UNKNOWN (start value)
+  lying_torso_angle_deg: 60  # torso more than 60 deg from vertical counts as horizontal
+  lying_bbox_aspect: 1.2     # backup for when shoulders/hips are hidden: a wide box means lying
+  sitting_thigh_angle_deg: 55  # thigh close to horizontal means seated; standing thighs are near 0
+  walking_speed: 0.25        # hip speed in box-heights per second; slow shuffling is ~0.3 (start value)
+  in_bed_overlap_ratio: 0.5  # used when hips aren't visible: half the box on the bed counts as in bed
+
+state_machine:
+  vote_window_sec: 1.5       # majority vote over this window removes 1-2 frame flicker
+  # Minimum time a new state must hold before the transition is accepted.
+  # Short for standing/walking because a real exit can be quick; longer for
+  # lying so turning over doesn't create fake segments.
+  min_dwell_sec:
+    lying_in_bed: 3.0
+    sitting_on_bed: 2.0
+    sitting_outside_bed: 3.0
+    standing: 1.0
+    walking: 1.0
+    lying_outside_bed: 3.0
+    unknown: 2.0
+  # If the person was lying in bed and then the pose goes low-confidence while
+  # the box is still on the bed (blanket), keep LYING_IN_BED for up to this long.
+  occlusion_hold_sec: 30.0
+
+triggers:
+  unknown_min_sec: 5.0       # UNKNOWN shorter than this is just noise, not worth investigating
+  flicker_window_sec: 5.0
+  flicker_min_changes: 3     # 3+ state changes in 5 s means the rules can't decide
+  near_edge_ratio: 0.15      # hip within 15% of a box height from the bed edge counts as "at the edge"
+
+agent:
+  policy: rules              # rules | llm
+  max_tool_calls: 4          # hard cap; unresolved -> UNKNOWN + MONITOR
+  look_back_sec: 10.0
+  look_forward_sec: 15.0     # longer than look_back because an exit is only confirmed by walking away
+  vlm_frames: 3              # frames sent per VLM question
+  min_confidence: 0.6        # below this the agent keeps looking instead of concluding
+
+vlm:
+  provider: vertex           # vertex | aistudio | none
+  model: gemini-2.5-flash
+  fallback_model: gemini-2.5-flash-lite
+  temperature: 0.0           # same input should give the same answer
+  max_retries: 4             # backoff 2, 4, 8, 16 s on 429/503
+  backoff_base_sec: 2.0
+  min_delay_sec: 1.0         # gap between calls to stay under rate limits
+  image_max_width: 512       # enough for posture and bed/floor context, much cheaper than full frames
+  jpeg_quality: 80
+  cache_dir: cache/vlm
+
+events:
+  exit_confirm_sec: 3.0      # must keep standing/walking away from the bed this long to confirm an exit
+  brief_stand_max_sec: 10.0  # stand then sit back on the bed within this -> not an exit
+  return_settle_sec: 10.0    # sitting on bed this long after being out also counts as a return
+
+alerts:
+  monitor_every_bed_exit: true   # for an elderly patient every exit is a fall-risk moment
+  edge_sitting_max_sec: 180      # long edge sitting often precedes an unassisted exit attempt
+  unknown_max_sec: 60            # a minute without knowing what is happening deserves a look
+  out_of_bed_monitor_sec: 600
+  absence_alert_sec: 1200        # 20 min away from bed is unusual at night
+  floor_lying_alert_sec: 20      # lying outside the bed this long is a possible fall
+  caregiver_downgrades_absence: true  # never applies to the possible-fall alert
+
+evaluation:
+  event_tolerance_sec: 5.0   # predicted event within +-5 s of a labelled one counts as a match
+  resolution_sec: 1.0        # compare predicted vs ground-truth state once per second
