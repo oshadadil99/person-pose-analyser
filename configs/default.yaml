@@ -43,14 +43,33 @@ patient:
 features:
   kp_min_conf: 0.3           # ignore individual keypoints below this; they are usually guessed
   speed_window_sec: 1.0      # hip speed is measured over 1 s so single-frame jitter doesn't count as walking
+  # Hips sitting on the bed edge are often a few pixels outside the polygon in 2D.
+  # Count them as "in bed" up to this far outside (in box heights).
+  in_bed_margin: 0.05
+  seat_margin: 0.1           # same idea for chairs: hips sit just above the seat surface in the image
+  # A box reaching the bottom of the image means the legs are out of frame
+  # (person close to the camera), not hidden under a blanket.
+  truncated_margin: 0.02     # fraction of frame height
 
 frame_rules:
   min_kp_conf_mean: 0.35     # below this the pose is unreliable -> UNKNOWN (start value)
   lying_torso_angle_deg: 60  # torso more than 60 deg from vertical counts as horizontal
   lying_bbox_aspect: 1.2     # backup for when shoulders/hips are hidden: a wide box means lying
-  sitting_thigh_angle_deg: 55  # thigh close to horizontal means seated; standing thighs are near 0
+  # Thigh angle (hip -> knee vs vertical) has an unsure band in the middle.
+  # Sideways to the camera a seated thigh is ~90 deg, but facing the camera it
+  # points at the lens and looks short and steep (~30 deg measured on test1).
+  # Standing thighs were 0-10 deg. Inside the band, context decides: hips on
+  # the bed or a seat -> sitting, otherwise standing, with low confidence.
+  sitting_thigh_angle_deg: 55  # above this: clearly seated
+  standing_thigh_max_deg: 20   # below this: clearly straight legs
+  unsure_conf_factor: 0.5      # confidence multiplier for unsure-band and legs-hidden guesses
   walking_speed: 0.25        # hip speed in box-heights per second; slow shuffling is ~0.3 (start value)
   in_bed_overlap_ratio: 0.5  # used when hips aren't visible: half the box on the bed counts as in bed
+  # Confidence: how far the deciding measurement is from its threshold.
+  # 30 deg past the threshold (or more) = full confidence from that part.
+  margin_scale_deg: 30
+  edge_conf_factor: 0.8      # hips right at the bed edge: in/out of bed is uncertain, lower the confidence
+  low_kp_lying_conf: 0.4     # blanket case: pose unreadable but a wide box on the bed, guess lying with low confidence
 
 state_machine:
   vote_window_sec: 1.5       # majority vote over this window removes 1-2 frame flicker
