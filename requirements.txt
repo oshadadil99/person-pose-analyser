@@ -1,6 +1,7 @@
 # Install the CUDA build of torch/torchvision first (see README),
 # otherwise ultralytics pulls in the CPU-only build.
 ultralytics>=8.3
+lap>=0.5.12          # used by ByteTrack for matching; ultralytics otherwise auto-installs it at runtime
 opencv-python>=4.9
 google-genai>=1.0
 pyyaml>=6.0
