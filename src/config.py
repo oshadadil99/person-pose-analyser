@@ -13,7 +13,7 @@ import yaml
 from dotenv import load_dotenv
 
 REQUIRED_SECTIONS = [
-    "sampling", "perception", "features", "frame_rules", "state_machine",
+    "sampling", "perception", "scene", "patient", "features", "frame_rules", "state_machine",
     "triggers", "agent", "vlm", "events", "alerts", "evaluation",
 ]
 VLM_PROVIDERS = ("vertex", "aistudio", "none")

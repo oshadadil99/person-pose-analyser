@@ -2,6 +2,7 @@
 .env
 secrets/
 agentic-project-*.json
+docs/
 
 # private working files, not part of the submission
 CLAUDE.md
