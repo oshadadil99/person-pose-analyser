@@ -123,18 +123,27 @@ vlm:
   cache_dir: cache/vlm
 
 events:
-  exit_confirm_sec: 3.0      # must keep standing/walking away from the bed this long to confirm an exit
-  brief_stand_max_sec: 10.0  # stand then sit back on the bed within this -> not an exit
-  return_settle_sec: 10.0    # sitting on bed this long after being out also counts as a return
+  # Exit = in bed -> up -> moving away. "Moving away" = walking, sitting in a chair,
+  # lying outside the bed or gone from view, sustained for exit_confirm_sec.
+  exit_confirm_sec: 3.0
+  # Stand up and sit back on the bed within this time -> not an exit. Standing next
+  # to the bed for longer than this without walking still counts as being up.
+  brief_stand_max_sec: 10.0
+  return_settle_sec: 10.0    # sitting on bed this long after being out also counts as a return (no lying needed)
+  # An event that had to bridge an UNKNOWN stretch (we didn't see the whole
+  # sequence) gets its confidence multiplied by this; the agent can re-check it.
+  unknown_gap_conf_factor: 0.7
 
 alerts:
+  # Every rule and its reasoning is explained in docs/alert_rules.md.
   monitor_every_bed_exit: true   # for an elderly patient every exit is a fall-risk moment
-  edge_sitting_max_sec: 180      # long edge sitting often precedes an unassisted exit attempt
+  edge_sitting_max_sec: 180      # long sitting on the bed often precedes an unassisted exit attempt
   unknown_max_sec: 60            # a minute without knowing what is happening deserves a look
-  out_of_bed_monitor_sec: 600
+  out_of_bed_monitor_sec: 600    # 10 min up after a bed exit: someone should check
   absence_alert_sec: 1200        # 20 min away from bed is unusual at night
   floor_lying_alert_sec: 20      # lying outside the bed this long is a possible fall
-  caregiver_downgrades_absence: true  # never applies to the possible-fall alert
+  caregiver_downgrades_absence: true  # a caregiver in the room lowers ABSENCE decisions; never the fall alert
+  caregiver_min_sec: 5.0         # a second person must be seen this long to count as "caregiver present"
 
 evaluation:
   event_tolerance_sec: 5.0   # predicted event within +-5 s of a labelled one counts as a match

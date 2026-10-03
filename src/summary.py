@@ -79,8 +79,21 @@ def build_summary(segments: list[Segment], start_sec: float, end_sec: float,
     return summary
 
 
-def timeline_lines(segments: list[Segment]) -> list[str]:
-    """'00:00 – 04:32  LYING_IN_BED', one line per segment."""
+def timeline_lines(segments: list[Segment],
+                   decision_tl: list[tuple[float, float, str]] | None = None) -> list[str]:
+    """'00:00 – 04:32  LYING_IN_BED', one line per segment.
+
+    With a decision timeline, each line also shows NORMAL / MONITOR / ALERT, and a
+    segment is split where the decision changes inside it (e.g. walking that
+    becomes MONITOR once the bed exit is confirmed)."""
     long_video = bool(segments) and segments[-1].end_sec >= 3600
-    return [f"{format_clock(s.start_sec, long_video)} – {format_clock(s.end_sec, long_video)}  {s.state.value}"
-            for s in segments]
+    rows = [(s.start_sec, s.end_sec, s.state.value, None) for s in segments]
+    if decision_tl:
+        rows = []
+        for s in segments:
+            for a, b, level in decision_tl:
+                lo, hi = max(s.start_sec, a), min(s.end_sec, b)
+                if hi > lo:
+                    rows.append((lo, hi, s.state.value, level))
+    return [f"{format_clock(a, long_video)} – {format_clock(b, long_video)}  {state:20s}{'  ' + lvl if lvl else ''}".rstrip()
+            for a, b, state, lvl in rows]

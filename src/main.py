@@ -15,7 +15,9 @@ from pathlib import Path
 
 import cv2
 
+from src.alerts import decision_timeline, evaluate_alerts, label_events, overall_level
 from src.config import load_config
+from src.events import detect_events, out_of_bed_periods
 from src.features import extract_features
 from src.frame_rules import classify_frames
 from src.patient import patient_per_frame, select_patient_ids, summarize_tracks
@@ -23,7 +25,7 @@ from src.perception import load_perception, run_perception, save_perception
 from src.report import write_outputs
 from src.scene import detect_scene, draw_scene, load_scene, save_scene
 from src.state_machine import build_timeline
-from src.summary import build_summary, format_duration, timeline_lines
+from src.summary import build_summary, format_clock, format_duration, timeline_lines
 from src.video_io import get_video_info, read_frame_at, resize_to_width
 
 log = logging.getLogger("main")
@@ -88,11 +90,31 @@ def main() -> None:
     feats = extract_features(frames, patient, scene, cfg, frame_height=meta["height"])
     raw = classify_frames(feats, cfg)
     final, segments = build_timeline(raw, feats, cfg, start, end)
-    summary = build_summary(segments, start, end)
-    write_outputs(out, segments, summary, feats, raw, final)
+    events, segments = detect_events(segments, cfg)
+    summary = build_summary(segments, start, end,
+                            bed_exit_count=sum(e.event == "bed_exit" for e in events),
+                            bed_return_count=sum(e.event == "return_to_bed" for e in events))
+    summary["out_of_bed_periods"] = out_of_bed_periods(segments)
+    decisions = evaluate_alerts(segments, events, feats, cfg)
+    label_events(events, cfg)
+    decision_tl = decision_timeline(decisions, start, end)
+    summary["overall_decision"] = overall_level(decisions)
+    write_outputs(out, segments, summary, events, decisions, decision_tl, feats, raw, final)
 
-    print("\nTimeline")
-    print("\n".join("  " + line for line in timeline_lines(segments)))
+    print("\nTimeline (state, decision)")
+    print("\n".join("  " + line for line in timeline_lines(segments, decision_tl)))
+    print("\nBed events")
+    for e in events or []:
+        d = e.to_dict()
+        print(f"  {d['event']:14s} start {d['start_time']}  confirmed {d['confirmed_time']}  "
+              f"{d['previous_state']} -> {d['current_state']}  conf {d['confidence']}")
+    if not events:
+        print("  none")
+    print(f"\nOverall decision: {summary['overall_decision']}")
+    print("Decision over time")
+    for a, b, level in decision_tl:
+        why = "; ".join(f"{d.rule}: {d.reason}" for d in decisions if d.start_sec <= a < d.end_sec)
+        print(f"  {format_clock(a)} – {format_clock(b)}  {level:8s}{why or 'no rule fired'}")
     print("\nTime per state")
     for state, sec in summary["activity_duration_sec"].items():
         if sec > 0:

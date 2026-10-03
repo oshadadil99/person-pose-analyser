@@ -60,7 +60,10 @@ Outputs in the output folder:
 | File | Content |
 |---|---|
 | `timeline.txt` | `00:00 – 00:11  LYING_IN_BED`, one line per segment |
-| `summary.json` | time per state, time in/out of bed, longest out-of-bed period, final state |
+| `bed_status.txt` | the coarse version: `IN_BED` / `OUT` / `UNKNOWN` |
+| `events.json` | bed exits and returns with start/confirmed time, states, confidence, decision |
+| `decisions.json` | NORMAL / MONITOR / ALERT: overall, each fired rule with reason, decision over time |
+| `summary.json` | time per state, time in/out of bed, exit/return counts, out-of-bed periods, final state |
 | `segments.json` | segments with confidence |
 | `frame_states.csv` | every sampled frame: measurements, raw state, final state |
 | `scene_preview.jpg` | detected bed and seats |
@@ -79,7 +82,18 @@ TODO
 
 ## Alert rules
 
-TODO
+Decisions come from fixed rules, not the LLM, so every alert is explainable
+and testable. Full reasoning per rule is in [docs/alert_rules.md](docs/alert_rules.md).
+
+| Level | When |
+|---|---|
+| NORMAL | lying, sitting, standing or walking, none of the below |
+| MONITOR | sitting on the bed > 3 min; activity unknown > 1 min; any confirmed bed exit (until back in bed); out of bed > 10 min |
+| ALERT | lying outside the bed > 20 s (possible fall); away from bed > 20 min |
+
+A caregiver in view lowers the absence rules by one level, but never the
+possible-fall alert. The output `decisions.json` lists each fired rule with
+its reason, the overall decision, and the decision over time.
 
 ## Results
 

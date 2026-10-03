@@ -68,3 +68,17 @@ def test_timeline_lines_match_assignment_format():
     lines = timeline_lines(EXAMPLE)
     assert lines[0] == "00:00 – 04:32  LYING_IN_BED"
     assert lines[3] == "05:20 – 07:41  WALKING"
+
+
+def test_timeline_lines_with_decisions_split_at_changes():
+    decisions = [(0, 320, "NORMAL"), (320, 900, "MONITOR")]
+    lines = timeline_lines(EXAMPLE[:4], decisions)
+    assert lines[0].startswith("00:00 – 04:32  LYING_IN_BED") and lines[0].endswith("NORMAL")
+    assert lines[-1].startswith("05:20 – 07:41  WALKING") and lines[-1].endswith("MONITOR")
+
+
+def test_segment_split_where_decision_changes_inside_it():
+    segs = [Segment(0, 60, State.WALKING, 0.8)]
+    lines = timeline_lines(segs, [(0, 25, "NORMAL"), (25, 60, "MONITOR")])
+    assert len(lines) == 2
+    assert lines[0].startswith("00:00 – 00:25  WALKING") and lines[1].endswith("MONITOR")
