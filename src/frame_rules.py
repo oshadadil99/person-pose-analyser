@@ -10,7 +10,7 @@ state machine (next stage) smooths the result over time.
   3. Body horizontal                            -> LYING_IN_BED / LYING_OUTSIDE_BED
   4. Upright, legs not measurable
        moving fast                              -> WALKING
-       legs out of frame (box at image bottom)  -> UNKNOWN
+       legs out of frame (box at image bottom)  -> STANDING, or UNKNOWN if over a seat
        hips on bed / seat                       -> SITTING_..., low confidence
        otherwise                                -> STANDING, low confidence
   5. Upright, thigh angle measured
@@ -115,7 +115,12 @@ def classify_frame(f: FrameFeatures, cfg: dict) -> FrameState:
         if moving:
             return FrameState(t, State.WALKING, round(conf(speed_margin, False) * unsure, 2), f"legs hidden, {speed}")
         if f.box_truncated:
-            return FrameState(t, State.UNKNOWN, 0.0, "legs out of frame, can't tell sitting from standing")
+            # Close to the camera, so a 2D overlap with the bed means "in front of it",
+            # not "on it". Only a seat under the hips makes sitting possible.
+            if f.on_seat:
+                return FrameState(t, State.UNKNOWN, 0.0, "legs out of frame over a seat, can't tell sitting from standing")
+            return FrameState(t, State.STANDING, round(conf(0.0, False) * unsure, 2),
+                              f"legs out of frame, nothing to sit on, {speed}")
         if supported:
             return sitting(round(conf(0.0) * unsure, 2), "upright, legs hidden")
         return FrameState(t, State.STANDING, round(conf(0.0, False) * unsure, 2), f"upright, legs hidden, {speed}")

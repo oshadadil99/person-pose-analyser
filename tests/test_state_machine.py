@@ -107,6 +107,22 @@ def test_low_confidence_frames_dont_outvote_confident_ones(cfg):
     assert seg_states(segs) == [SB]
 
 
+def test_weak_guesses_beat_unknown_frames(cfg):
+    # legs-hidden walking: low-confidence guesses mixed with a few unreadable frames
+    states, feats = make([(W, 30)], conf=0.12)
+    for i in range(1, 30, 4):
+        states[i] = FrameState(states[i].t_sec, U, 0.0, "pose unclear")
+    _, segs = build_timeline(states, feats, cfg, 0.0, 6.0)
+    assert seg_states(segs) == [W]
+
+
+def test_lone_guess_does_not_break_long_unknown(cfg):
+    states, feats = make([(U, 40)])
+    states[20] = FrameState(states[20].t_sec, W, 0.12, "stray")
+    _, segs = build_timeline(states, feats, cfg, 0.0, 8.0)
+    assert seg_states(segs) == [U]
+
+
 def test_empty_input(cfg):
     final, segs = build_timeline([], [], cfg, 0.0, 10.0)
     assert final == [] and seg_states(segs) == [U] and segs[0].duration_sec == 10.0

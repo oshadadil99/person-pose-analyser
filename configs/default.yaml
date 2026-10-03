@@ -63,7 +63,10 @@ frame_rules:
   sitting_thigh_angle_deg: 55  # above this: clearly seated
   standing_thigh_max_deg: 20   # below this: clearly straight legs
   unsure_conf_factor: 0.5      # confidence multiplier for unsure-band and legs-hidden guesses
-  walking_speed: 0.25        # hip speed in box-heights per second; slow shuffling is ~0.3 (start value)
+  # Hip speed in box-heights per second. On test1, standing still measured
+  # 0.02-0.10 and slow pacing/turning in a small room 0.05-0.26. 0.15 sits
+  # above the standing noise; elderly walking is slow, so err low (decision D24).
+  walking_speed: 0.15
   in_bed_overlap_ratio: 0.5  # used when hips aren't visible: half the box on the bed counts as in bed
   # Confidence: how far the deciding measurement is from its threshold.
   # 30 deg past the threshold (or more) = full confidence from that part.
@@ -75,7 +78,8 @@ state_machine:
   vote_window_sec: 1.5       # majority vote over this window removes 1-2 frame flicker
   # Votes are weighted by confidence. UNKNOWN has no confidence of its own, so it
   # gets a small fixed weight: a real guess beats it, but a stretch of unknowns stays unknown.
-  unknown_vote_weight: 0.2
+  # Kept below the weakest real guesses (~0.10, legs hidden) so they aren't outvoted (D24).
+  unknown_vote_weight: 0.05
   occlusion_hold_conf: 0.3   # confidence given to frames kept as LYING_IN_BED by the blanket hold
   # Minimum time a new state must hold before the transition is accepted.
   # Short for standing/walking because a real exit can be quick; longer for

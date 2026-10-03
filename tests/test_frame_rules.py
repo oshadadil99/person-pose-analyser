@@ -79,9 +79,13 @@ def test_standing_and_walking(cfg):
 
 
 def test_legs_hidden(cfg):
-    # legs cut off by the bottom of the image: can't tell
-    assert state(cfg, thigh_angle_deg=None, box_truncated=True) == State.UNKNOWN
+    # legs cut off by the bottom of the image, nothing to sit on: standing (or walking if moving)
+    assert state(cfg, thigh_angle_deg=None, box_truncated=True) == State.STANDING
     assert state(cfg, thigh_angle_deg=None, box_truncated=True, hip_speed=0.8) == State.WALKING
+    # ...even if the hips overlap the bed in 2D: close to the camera means in front of the bed
+    assert state(cfg, thigh_angle_deg=None, box_truncated=True, hip_in_bed=True, bed_edge_dist=0.2) == State.STANDING
+    # over a seat it could be sitting or standing in front of it: can't tell
+    assert state(cfg, thigh_angle_deg=None, box_truncated=True, on_seat=True, seat_label="chair") == State.UNKNOWN
     # legs under a blanket, sitting up in bed
     assert state(cfg, thigh_angle_deg=None, hip_in_bed=True, bed_edge_dist=0.4) == State.SITTING_ON_BED
     assert state(cfg, thigh_angle_deg=None) == State.STANDING
