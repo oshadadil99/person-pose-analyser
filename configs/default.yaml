@@ -73,6 +73,10 @@ frame_rules:
 
 state_machine:
   vote_window_sec: 1.5       # majority vote over this window removes 1-2 frame flicker
+  # Votes are weighted by confidence. UNKNOWN has no confidence of its own, so it
+  # gets a small fixed weight: a real guess beats it, but a stretch of unknowns stays unknown.
+  unknown_vote_weight: 0.2
+  occlusion_hold_conf: 0.3   # confidence given to frames kept as LYING_IN_BED by the blanket hold
   # Minimum time a new state must hold before the transition is accepted.
   # Short for standing/walking because a real exit can be quick; longer for
   # lying so turning over doesn't create fake segments.

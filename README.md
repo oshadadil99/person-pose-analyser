@@ -40,7 +40,38 @@ python -m pytest
 
 ## Usage
 
-TODO
+Put a video in `data/videos/` and run:
+
+```bash
+python -m src.main --video data/videos/room1.mp4 --out outputs/room1
+```
+
+The first run detects people (YOLO11-pose) and furniture (YOLO11-seg) and
+caches both in the output folder; later runs reuse them and take seconds.
+Useful options:
+
+- `--start 10 --end 48` analyse only part of the video
+- `--rerun` recompute the cached detections
+- `--scene path/to/scene.json` use a hand-drawn bed instead of the detected one
+  (draw it with `python tools/draw_bed_polygon.py --video ... --scene ...`)
+
+Outputs in the output folder:
+
+| File | Content |
+|---|---|
+| `timeline.txt` | `00:00 – 00:11  LYING_IN_BED`, one line per segment |
+| `summary.json` | time per state, time in/out of bed, longest out-of-bed period, final state |
+| `segments.json` | segments with confidence |
+| `frame_states.csv` | every sampled frame: measurements, raw state, final state |
+| `scene_preview.jpg` | detected bed and seats |
+
+Debug tools: `tools/debug_pose.py` (skeleton video), `tools/detect_scene.py`
+(bed/seat detection and patient track table), `tools/debug_states.py`
+(per-frame states drawn on the video).
+
+**Time conventions.** Time in bed = lying in bed + sitting on bed. Everything
+else counts as out of bed, including UNKNOWN, so in + out always equals the
+analysed duration. Unknown time is also reported separately (`unknown_sec`).
 
 ## Design
 
