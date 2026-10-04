@@ -24,7 +24,7 @@ from src.features import extract_features
 from src.frame_rules import classify_frames
 from src.patient import patient_per_frame, select_patient_ids, summarize_tracks
 from src.perception import draw_person, load_perception
-from src.scene import draw_scene, load_scene
+from src.scene import draw_scene, load_scenes
 from src.video_io import resize_to_width
 
 
@@ -46,11 +46,15 @@ def main() -> None:
     cfg = load_config(args.config)
     out = Path(args.out)
     _, frames = load_perception(out / "perception.jsonl")
-    scene = load_scene(out / "scene.json")
+    scenes = load_scenes(out / "scene.json")
 
-    tracks = summarize_tracks(frames, scene.bed.polygon if scene.bed else None, cfg)
+    def bed_at(t):
+        sc = scenes.at(t)
+        return sc.bed.polygon if sc and sc.bed else None
+
+    tracks = summarize_tracks(frames, bed_at, cfg)
     patient = patient_per_frame(frames, select_patient_ids(tracks, cfg))
-    feats = extract_features(frames, patient, scene, cfg)
+    feats = extract_features(frames, patient, scenes, cfg)
     states = classify_frames(feats, cfg)
 
     with open(out / "frame_states.csv", "w", newline="", encoding="utf-8") as f:
@@ -89,7 +93,7 @@ def main() -> None:
         if item is None:
             continue
         fr, p, st = item
-        img = draw_scene(img, scene)
+        img = draw_scene(img, scenes.at(fr.t_sec))
         for other in fr.persons:
             if other is not p:
                 draw_person(img, other, (128, 128, 128), kp_min)

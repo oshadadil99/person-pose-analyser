@@ -21,6 +21,7 @@ would be taken for the patient. Fixing that needs appearance re-identification.
 import logging
 import math
 from dataclasses import dataclass
+from typing import Callable
 
 from src.geometry import box_height, signed_distance
 from src.perception import KP, FramePerception, Person
@@ -56,11 +57,14 @@ class TrackSummary:
     near_bed_frames: int = 0
 
 
-def summarize_tracks(frames: list[FramePerception], bed_polygon: list | None, cfg: dict) -> dict[int, TrackSummary]:
+def summarize_tracks(frames: list[FramePerception], bed: list | Callable[[float], list | None] | None,
+                     cfg: dict) -> dict[int, TrackSummary]:
+    """`bed` is the bed polygon, or a function t -> polygon when the camera moved."""
     kp_min_conf = cfg["features"]["kp_min_conf"]
     margin = cfg["patient"]["bed_margin"]
     tracks: dict[int, TrackSummary] = {}
     for fr in frames:
+        bed_polygon = bed(fr.t_sec) if callable(bed) else bed
         for p in fr.persons:
             if p.track_id < 0:      # not yet confirmed by the tracker
                 continue

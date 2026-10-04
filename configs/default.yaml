@@ -29,6 +29,17 @@ scene:
   polygon_epsilon: 0.01      # polygon simplification, as a fraction of the outline length
   seat_bed_max_iou: 0.5      # a "couch" sitting on top of the bed is the bed mis-labelled, drop it
 
+camera:
+  # The camera is meant to be fixed, but a phone gets nudged. test2 shifted ~45 px
+  # at 8:10. Detect moves and re-detect the bed/seats for each camera position.
+  detect_moves: true
+  check_fps: 0.5             # compare one frame every 2 s with the reference
+  work_width: 320            # small grey frames: fast, and people matter less than the room
+  move_px: 20                # shift (in original pixels) that counts as a move
+  confirm_checks: 2          # must stay shifted for 2 checks (4 s), so a person walking past isn't a move
+  min_segment_sec: 30        # a camera position shorter than this is merged into the next one
+  dark_level: 25             # mean brightness below this: too dark to compare, skip
+
 patient:
   bed_margin: 0.3            # "near the bed" = within 0.3 box-heights outside it; edge sitting counts
   # ByteTrack sometimes gives the patient a new ID after occlusion. If a new track
@@ -54,6 +65,12 @@ features:
 frame_rules:
   min_kp_conf_mean: 0.35     # below this the pose is unreliable -> UNKNOWN (start value)
   lying_torso_angle_deg: 60  # torso more than 60 deg from vertical counts as horizontal
+  # Perspective: a bed pointing toward the camera looks diagonal, so someone lying
+  # in it can measure only ~50 deg (test2: 49-55 deg, bed axis 64 deg). Hips in bed
+  # + torso lined up with the bed's long axis also counts as lying. Upright states
+  # measured at most ~19 deg, so the 35 deg floor keeps them out (decision D31).
+  bed_axis_tolerance_deg: 20
+  aligned_min_torso_deg: 35
   lying_bbox_aspect: 1.2     # backup for when shoulders/hips are hidden: a wide box means lying
   # Thigh angle (hip -> knee vs vertical) has an unsure band in the middle.
   # Sideways to the camera a seated thigh is ~90 deg, but facing the camera it

@@ -57,3 +57,15 @@ def polygon_bbox(poly: Polygon) -> Box:
 
 def box_height(box: Box) -> float:
     return box[3] - box[1]
+
+
+def long_axis_angle(poly: Polygon) -> float:
+    """Angle of the polygon's long axis against the vertical, 0-90 degrees.
+
+    Uses the minimum-area rotated rectangle around the polygon. For a bed seen
+    in perspective this is the direction a person lying in it would point."""
+    rect = cv2.minAreaRect(np.asarray(poly, dtype=np.float32))
+    corners = cv2.boxPoints(rect)
+    edges = [(corners[i], corners[(i + 1) % 4]) for i in range(4)]
+    a, b = max(edges, key=lambda e: float(np.linalg.norm(e[1] - e[0])))
+    return float(math.degrees(math.atan2(abs(b[0] - a[0]), abs(b[1] - a[1]))))

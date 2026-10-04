@@ -28,7 +28,8 @@ from src.frame_rules import classify_frames
 from src.patient import patient_per_frame, select_patient_ids, summarize_tracks
 from src.perception import load_perception, run_perception, save_perception
 from src.report import write_outputs
-from src.scene import detect_scene, draw_scene, load_scene, save_scene
+from src.camera import find_camera_segments
+from src.scene import SceneTimeline, detect_scene, draw_scene, load_scenes, save_scenes
 from src.state_machine import build_timeline
 from src.summary import build_summary, format_clock, format_duration, timeline_lines
 from src.triggers import find_triggers
@@ -50,20 +51,26 @@ def get_perception(video: str, out: Path, cfg: dict, rerun: bool):
     return meta, frames
 
 
-def get_scene(video: str, out: Path, cfg: dict, rerun: bool, override: str | None):
+def get_scene(video: str, out: Path, cfg: dict, rerun: bool, override: str | None) -> SceneTimeline:
+    """Bed and seats for every camera position (one position if the camera never moved)."""
     if override:
-        return load_scene(override)
+        return load_scenes(override)
     cache = out / "scene.json"
-    if cache.exists() and not rerun:
+    # Reuse the cache, unless it's an old single-scene file made before camera-move detection.
+    if cache.exists() and not rerun and "camera_segments" in cache.read_text(encoding="utf-8"):
         log.info("Reusing %s", cache)
-        return load_scene(cache)
-    scene = detect_scene(video, cfg)
-    save_scene(cache, scene)
-    frame = read_frame_at(video, get_video_info(video).duration_sec / 2)
-    if frame is not None:
-        preview, _ = resize_to_width(draw_scene(frame, scene), cfg["sampling"]["max_width"])
-        cv2.imwrite(str(out / "scene_preview.jpg"), preview)
-    return scene
+        return load_scenes(cache)
+    segments = []
+    for i, (a, b) in enumerate(find_camera_segments(video, cfg)):
+        scene = detect_scene(video, cfg, a, b)
+        segments.append((a, b, scene))
+        frame = read_frame_at(video, (a + b) / 2)
+        if frame is not None:
+            preview, _ = resize_to_width(draw_scene(frame, scene), cfg["sampling"]["max_width"])
+            cv2.imwrite(str(out / ("scene_preview.jpg" if i == 0 else f"scene_preview_{i + 1}.jpg")), preview)
+    timeline = SceneTimeline(segments)
+    save_scenes(cache, timeline)
+    return timeline
 
 
 def main() -> None:
@@ -96,7 +103,11 @@ def main() -> None:
     if not frames:
         raise SystemExit(f"No frames between {start}s and {end}s")
 
-    tracks = summarize_tracks(frames, scene.bed.polygon if scene.bed else None, cfg)
+    def bed_at(t: float):
+        sc = scene.at(t)
+        return sc.bed.polygon if sc and sc.bed else None
+
+    tracks = summarize_tracks(frames, bed_at, cfg)
     patient_ids = select_patient_ids(tracks, cfg)
     patient = patient_per_frame(frames, patient_ids)
     feats = extract_features(frames, patient, scene, cfg, frame_height=meta["height"])

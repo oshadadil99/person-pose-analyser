@@ -17,10 +17,10 @@ import math
 from collections import deque
 from dataclasses import dataclass
 
-from src.geometry import box_height, box_overlap_ratio, signed_distance
+from src.geometry import box_height, box_overlap_ratio, long_axis_angle, signed_distance
 from src.patient import reference_point
 from src.perception import KP, FramePerception, Person
-from src.scene import Scene
+from src.scene import Scene, SceneTimeline
 
 # Keypoints that matter for posture. Face and arms are ignored on purpose:
 # they move a lot and say little about lying/sitting/standing.
@@ -47,6 +47,7 @@ class FrameFeatures:
     ref_source: str | None = None        # "hips", "one_hip" or "box_centre"
     box_h: float | None = None
     box_truncated: bool | None = None    # box reaches the bottom of the frame: legs out of view
+    bed_axis_deg: float | None = None    # bed's long axis vs vertical (for "lying along the bed")
 
 
 def angle_from_vertical(p1: tuple[float, float], p2: tuple[float, float]) -> float:
@@ -82,17 +83,22 @@ def thigh_angle(person: Person, kp_min_conf: float) -> float | None:
 
 
 def extract_features(frames: list[FramePerception], patient: list[Person | None],
-                     scene: Scene | None, cfg: dict, frame_height: int | None = None) -> list[FrameFeatures]:
+                     scene: Scene | SceneTimeline | None, cfg: dict,
+                     frame_height: int | None = None) -> list[FrameFeatures]:
+    """`scene` can be one Scene, or a SceneTimeline when the camera moved (each frame
+    then uses the bed/seats detected for its own camera position)."""
     fc = cfg["features"]
-    if frame_height is None and scene is not None:
-        frame_height = scene.frame_height
+    scenes = SceneTimeline.single(scene) if isinstance(scene, Scene) else scene
     kp_min = fc["kp_min_conf"]
-    bed = scene.bed.polygon if scene and scene.bed else None
-    seats = scene.seats if scene else []
+    axis_cache: dict[int, float] = {}
 
     out = []
     recent: deque = deque()   # (t, point, is_box_centre) for the speed window
     for fr, p in zip(frames, patient):
+        sc = scenes.at(fr.t_sec) if scenes else None
+        bed = sc.bed.polygon if sc and sc.bed else None
+        seats = sc.seats if sc else []
+        fh = frame_height or (sc.frame_height if sc else None)
         f = FrameFeatures(fr.frame_idx, fr.t_sec, visible=p is not None, num_persons=len(fr.persons))
         if p is None:
             recent.clear()   # speed across a gap in visibility would be meaningless
@@ -103,8 +109,8 @@ def extract_features(frames: list[FramePerception], patient: list[Person | None]
         h = max(box_height(p.box), 1.0)
         f.box_h = h
         f.bbox_aspect = (x2 - x1) / h
-        if frame_height:
-            f.box_truncated = y2 >= frame_height * (1 - fc["truncated_margin"])
+        if fh:
+            f.box_truncated = y2 >= fh * (1 - fc["truncated_margin"])
         f.torso_angle_deg = torso_angle(p, kp_min)
         f.thigh_angle_deg = thigh_angle(p, kp_min)
         f.kp_conf_mean = sum(p.keypoints[i][2] for i in POSTURE_KPS) / len(POSTURE_KPS)
@@ -115,7 +121,10 @@ def extract_features(frames: list[FramePerception], patient: list[Person | None]
             f.bed_edge_dist = signed_distance((x, y), bed) / h
             f.hip_in_bed = f.bed_edge_dist >= -fc["in_bed_margin"]
             f.bed_overlap = box_overlap_ratio(p.box, bed)
-        if scene is not None:
+            if id(bed) not in axis_cache:
+                axis_cache[id(bed)] = long_axis_angle(bed)
+            f.bed_axis_deg = axis_cache[id(bed)]
+        if sc is not None:
             f.on_seat = False
             for s in seats:
                 if signed_distance((x, y), s.polygon) / h >= -fc["seat_margin"]:

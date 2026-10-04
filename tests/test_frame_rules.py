@@ -42,6 +42,19 @@ def test_lying_in_and_outside_bed(cfg):
     assert state(cfg, torso_angle_deg=85) == State.LYING_OUTSIDE_BED
 
 
+def test_lying_along_a_diagonal_bed(cfg):
+    # test2: bed axis 64 deg, person lying in it measured ~52 deg (perspective), legs straight
+    r = classify_frame(feats(torso_angle_deg=52, bed_axis_deg=64, hip_in_bed=True, bed_edge_dist=0.35), cfg)
+    assert r.state == State.LYING_IN_BED and "along the bed" in r.reason
+    # same torso angle but not in the bed: not lying
+    assert state(cfg, torso_angle_deg=52, bed_axis_deg=64) == State.STANDING
+    # upright in bed (sitting) is never "along the bed", even with a diagonal bed
+    assert state(cfg, torso_angle_deg=10, thigh_angle_deg=85, bed_axis_deg=64,
+                 hip_in_bed=True, bed_edge_dist=0.3) == State.SITTING_ON_BED
+    # torso far from the bed's direction: not lying
+    assert state(cfg, torso_angle_deg=38, bed_axis_deg=80, hip_in_bed=True, bed_edge_dist=0.3) == State.STANDING
+
+
 def test_lying_from_box_shape_when_torso_hidden(cfg):
     assert state(cfg, torso_angle_deg=None, bbox_aspect=2.0, hip_in_bed=True, bed_edge_dist=0.5) == State.LYING_IN_BED
 

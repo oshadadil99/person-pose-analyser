@@ -7,7 +7,8 @@ state machine (next stage) smooths the result over time.
   2. Pose unreadable (low keypoint confidence)
        wide box mostly on the bed (blanket)     -> LYING_IN_BED, low confidence
        otherwise                                -> UNKNOWN
-  3. Body horizontal                            -> LYING_IN_BED / LYING_OUTSIDE_BED
+  3. Body horizontal, or in bed with the torso
+     lined up with the bed's long axis          -> LYING_IN_BED / LYING_OUTSIDE_BED
   4. Upright, legs not measurable
        moving fast                              -> WALKING
        legs out of frame (box at image bottom)  -> STANDING, or UNKNOWN if over a seat
@@ -85,7 +86,16 @@ def classify_frame(f: FrameFeatures, cfg: dict) -> FrameState:
         return round(c * (edge if location_matters else 1.0), 2)
 
     # 3. Horizontal body. Torso angle decides if we have it, else the box shape.
-    if f.torso_angle_deg is not None:
+    #    In bed, a torso lined up with the bed's long axis also counts (perspective).
+    aligned = (in_bed and f.torso_angle_deg is not None and f.bed_axis_deg is not None
+               and f.torso_angle_deg >= fr["aligned_min_torso_deg"]
+               and abs(f.torso_angle_deg - f.bed_axis_deg) <= fr["bed_axis_tolerance_deg"])
+    if f.torso_angle_deg is not None and aligned and f.torso_angle_deg <= fr["lying_torso_angle_deg"]:
+        horizontal = True
+        diff = abs(f.torso_angle_deg - f.bed_axis_deg)
+        posture_margin = _margin(diff, fr["bed_axis_tolerance_deg"], fr["bed_axis_tolerance_deg"])
+        posture = f"torso {f.torso_angle_deg:.0f}deg along the bed ({f.bed_axis_deg:.0f}deg)"
+    elif f.torso_angle_deg is not None:
         horizontal = f.torso_angle_deg > fr["lying_torso_angle_deg"]
         posture_margin = _margin(f.torso_angle_deg, fr["lying_torso_angle_deg"], scale)
         posture = f"torso {f.torso_angle_deg:.0f}deg"

@@ -77,8 +77,25 @@ class _Cluster:
         self.confs.append(d.conf)
 
 
-def segment_frames(video_path: str | Path, cfg: dict) -> tuple[list[list[Detection]], float, tuple[int, int]]:
-    """Run the segmentation model on evenly spaced frames.
+@dataclass
+class SceneTimeline:
+    """One Scene per camera position: (start_sec, end_sec, scene). A fixed camera has one entry."""
+    segments: list[tuple[float, float, Scene]]
+
+    @staticmethod
+    def single(scene: Scene) -> "SceneTimeline":
+        return SceneTimeline([(0.0, float("inf"), scene)])
+
+    def at(self, t: float) -> Scene | None:
+        for a, b, s in self.segments:
+            if a <= t < b:
+                return s
+        return self.segments[-1][2] if self.segments else None
+
+
+def segment_frames(video_path: str | Path, cfg: dict, t0: float = 0.0, t1: float | None = None
+                   ) -> tuple[list[list[Detection]], float, tuple[int, int]]:
+    """Run the segmentation model on evenly spaced frames between t0 and t1.
 
     Returns (detections per frame, scale from original to working size, working (h, w)).
     """
@@ -86,13 +103,14 @@ def segment_frames(video_path: str | Path, cfg: dict) -> tuple[list[list[Detecti
     sc = cfg["scene"]
     info = get_video_info(video_path)
     model = YOLO(sc["model"])
+    t1 = info.duration_sec if t1 is None else t1
 
     roles = {name: "bed" for name in sc["bed_classes"]} | {name: "seat" for name in sc["seat_classes"]}
     class_ids = [i for i, name in model.names.items() if name in roles]
 
     # Middle of n equal slices, so we never pick the very first/last frame (often black).
     n = sc["num_frames"]
-    times = [info.duration_sec * (i + 0.5) / n for i in range(n)]
+    times = [t0 + (t1 - t0) * (i + 0.5) / n for i in range(n)]
 
     all_dets, scale, work_shape = [], 1.0, (0, 0)
     for t in times:
@@ -166,9 +184,9 @@ def _to_object(c: _Cluster, cfg: dict, scale: float, n_frames: int) -> SceneObje
                        round(float(np.mean(c.confs)), 3), round(len(c.masks) / max(n_frames, 1), 2))
 
 
-def detect_scene(video_path: str | Path, cfg: dict) -> Scene:
+def detect_scene(video_path: str | Path, cfg: dict, t0: float = 0.0, t1: float | None = None) -> Scene:
     info = get_video_info(video_path)
-    frames, scale, _ = segment_frames(video_path, cfg)
+    frames, scale, _ = segment_frames(video_path, cfg, t0, t1)
     bed_c, seat_cs = merge_detections(frames, cfg)
 
     bed = _to_object(bed_c, cfg, scale, len(frames)) if bed_c else None
@@ -185,11 +203,34 @@ def save_scene(path: str | Path, scene: Scene) -> None:
     path.write_text(json.dumps(asdict(scene), indent=2), encoding="utf-8")
 
 
-def load_scene(path: str | Path) -> Scene:
-    d = json.loads(Path(path).read_text(encoding="utf-8"))
+def _scene_from_dict(d: dict) -> Scene:
     bed = SceneObject(**d["bed"]) if d.get("bed") else None
     seats = [SceneObject(**s) for s in d.get("seats", [])]
     return Scene(d["frame_width"], d["frame_height"], bed, seats, d.get("source", "auto"))
+
+
+def load_scene(path: str | Path) -> Scene:
+    """A single scene (the first camera position if the file has several)."""
+    d = json.loads(Path(path).read_text(encoding="utf-8"))
+    if "camera_segments" in d:
+        d = d["camera_segments"][0]["scene"]
+    return _scene_from_dict(d)
+
+
+def save_scenes(path: str | Path, timeline: SceneTimeline) -> None:
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"camera_segments": [
+        {"start_sec": round(a, 2), "end_sec": round(b, 2), "scene": asdict(s)} for a, b, s in timeline.segments
+    ]}, indent=2), encoding="utf-8")
+
+
+def load_scenes(path: str | Path) -> SceneTimeline:
+    """Either file format: one scene (e.g. hand-drawn), or one per camera position."""
+    d = json.loads(Path(path).read_text(encoding="utf-8"))
+    if "camera_segments" not in d:
+        return SceneTimeline.single(_scene_from_dict(d))
+    return SceneTimeline([(c["start_sec"], c["end_sec"], _scene_from_dict(c["scene"])) for c in d["camera_segments"]])
 
 
 def draw_scene(img: np.ndarray, scene: Scene) -> np.ndarray:

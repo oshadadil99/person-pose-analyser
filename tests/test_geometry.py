@@ -1,6 +1,6 @@
 import pytest
 
-from src.geometry import box_iou, box_overlap_ratio, point_in_polygon, signed_distance
+from src.geometry import box_iou, box_overlap_ratio, long_axis_angle, point_in_polygon, signed_distance
 
 # A 100 x 100 square "bed" from (100, 100) to (200, 200)
 BED = [[100, 100], [200, 100], [200, 200], [100, 200]]
@@ -26,6 +26,15 @@ def test_box_overlap_ratio():
 
 def test_box_overlap_degenerate_box():
     assert box_overlap_ratio([10, 10, 10, 50], BED) == 0.0
+
+
+def test_long_axis_angle():
+    wide = [[0, 0], [300, 0], [300, 100], [0, 100]]
+    tall = [[0, 0], [100, 0], [100, 300], [0, 300]]
+    assert long_axis_angle(wide) == pytest.approx(90, abs=1)
+    assert long_axis_angle(tall) == pytest.approx(0, abs=1)
+    diagonal = [[0, 0], [20, -20], [220, 180], [200, 200]]    # long side at 45 deg
+    assert long_axis_angle(diagonal) == pytest.approx(45, abs=2)
 
 
 def test_box_iou():
