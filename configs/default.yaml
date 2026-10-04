@@ -137,9 +137,17 @@ agent:
 vlm:
   # aistudio = Gemini API key (GEMINI_API_KEY), vertex = GCP project, none = offline.
   # Both online providers use the same models. Override per run with --vlm.
-  provider: vertex
-  model: gemini-2.5-flash
-  fallback_model: gemini-2.5-flash-lite   # used when the main model keeps failing (rate limits, outages)
+  # If the key/project isn't set, the run continues offline with a warning.
+  provider: aistudio
+  # Which models exist depends on the provider: new AI Studio keys no longer get
+  # the 2.5 models (404 "no longer available to new users", checked 2026-10-04),
+  # while my Vertex project has them. So each provider has its own pair.
+  # gemini-3.8-flash is newer but its free tier allows only 20 requests per DAY,
+  # used up by a single run, so the API-key default is 3.5 Flash.
+  model: gemini-3.5-flash                 # AI Studio
+  fallback_model: gemini-3.5-flash-lite   # used when the main model keeps failing (rate limits, outages)
+  vertex_model: gemini-2.5-flash
+  vertex_fallback_model: gemini-2.5-flash-lite
   temperature: 0.0           # same input should give the same answer
   max_retries: 4             # backoff 2, 4, 8, 16 s on 429/5xx before switching to the fallback model
   fallback_retries: 2

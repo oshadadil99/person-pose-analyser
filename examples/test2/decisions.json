@@ -1,0 +1,64 @@
+{
+  "overall_decision": "MONITOR",
+  "decisions": [
+    {
+      "level": "MONITOR",
+      "rule": "bed_exit",
+      "time": "00:06:58",
+      "until": "00:07:08",
+      "start_sec": 418.2,
+      "end_sec": 428.2,
+      "reason": "confirmed bed exit: fall-risk moment"
+    },
+    {
+      "level": "MONITOR",
+      "rule": "bed_exit",
+      "time": "00:07:45",
+      "until": "00:10:04",
+      "start_sec": 465.2,
+      "end_sec": 604.4,
+      "reason": "confirmed bed exit: fall-risk moment"
+    },
+    {
+      "level": "MONITOR",
+      "rule": "bed_exit",
+      "time": "00:11:21",
+      "until": "00:13:04",
+      "start_sec": 680.6,
+      "end_sec": 783.77,
+      "reason": "confirmed bed exit: fall-risk moment"
+    }
+  ],
+  "timeline": [
+    {
+      "start": "00:00",
+      "end": "06:58",
+      "level": "NORMAL"
+    },
+    {
+      "start": "06:58",
+      "end": "07:08",
+      "level": "MONITOR"
+    },
+    {
+      "start": "07:08",
+      "end": "07:45",
+      "level": "NORMAL"
+    },
+    {
+      "start": "07:45",
+      "end": "10:04",
+      "level": "MONITOR"
+    },
+    {
+      "start": "10:04",
+      "end": "11:21",
+      "level": "NORMAL"
+    },
+    {
+      "start": "11:21",
+      "end": "13:04",
+      "level": "MONITOR"
+    }
+  ]
+}

@@ -21,6 +21,7 @@ Answers are cached by hash(model + task + previous steps), so reruns are free
 and reproducible, like the VLM cache.
 """
 
+import base64
 import hashlib
 import json
 import logging
@@ -150,6 +151,16 @@ def _bed_evidence(steps: list, cfg: dict) -> bool:
     return False
 
 
+def _signature(resp) -> str | None:
+    """Gemini 3 attaches a 'thought signature' to each function call; it must be sent
+    back with that call in the next turn's history. Stored as base64 text."""
+    try:
+        sig = resp.candidates[0].content.parts[0].thought_signature
+    except (AttributeError, IndexError, TypeError):
+        return None
+    return base64.b64encode(sig).decode() if sig else None
+
+
 class LLMPolicy:
     name = "llm"
 
@@ -157,6 +168,23 @@ class LLMPolicy:
         self.caller = GeminiCaller(client, cfg)
         self.cfg = cfg
         self.cache_dir = Path(cfg["vlm"]["llm_cache_dir"])
+        self.signatures: dict[str, str] = {}   # step key -> thought signature of the call that made it
+
+    @staticmethod
+    def _step_key(trigger: Trigger, index: int, tool: str, args: dict) -> str:
+        return json.dumps([trigger.kind, trigger.t_start, index, tool, args], sort_keys=True, default=str)
+
+    def _history(self, trigger: Trigger, steps: list) -> list:
+        from google.genai import types
+        contents = []
+        for i, s in enumerate(steps):
+            sig = self.signatures.get(self._step_key(trigger, i, s.tool, s.args))
+            call = types.FunctionCall(name=s.tool, args={**s.args, "thought": s.thought})
+            contents.append(types.Content(role="model", parts=[types.Part(
+                function_call=call, thought_signature=base64.b64decode(sig) if sig else None)]))
+            contents.append(types.Content(role="user", parts=[types.Part.from_function_response(
+                name=s.tool, response={"result": s.result})]))
+        return contents
 
     def next_action(self, trigger: Trigger, steps: list, cfg: dict) -> Action:
         from google.genai import types
@@ -172,22 +200,21 @@ class LLMPolicy:
             call = json.loads(cached.read_text(encoding="utf-8"))
         else:
             contents = [types.Content(role="user", parts=[types.Part.from_text(text=prompt)])]
-            for s in steps:
-                contents.append(types.Content(role="model", parts=[types.Part.from_function_call(
-                    name=s.tool, args={**s.args, "thought": s.thought})]))
-                contents.append(types.Content(role="user", parts=[types.Part.from_function_response(
-                    name=s.tool, response={"result": s.result})]))
+            contents += self._history(trigger, steps)
+            # No thinking_config: Gemini 3 models reject thinking_budget=0 (400), and the
+            # "thought" argument on every call already gives the reasoning for the trace.
             config = types.GenerateContentConfig(
                 temperature=cfg["vlm"]["temperature"],
                 tools=[types.Tool(function_declarations=TOOL_DECLS)],
                 tool_config=types.ToolConfig(function_calling_config=types.FunctionCallingConfig(
                     mode="ANY", allowed_function_names=None if budget_left else ["conclude"])),
-                automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
-                thinking_config=types.ThinkingConfig(thinking_budget=0))
+                automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True))
 
             def parse(resp):
                 calls = resp.function_calls or []
-                return {"name": calls[0].name, "args": dict(calls[0].args or {})} if calls else None
+                if not calls:
+                    return None
+                return {"name": calls[0].name, "args": dict(calls[0].args or {}), "signature": _signature(resp)}
 
             call, _ = self.caller.call(contents, config, parse)
             if call is None:
@@ -201,4 +228,6 @@ class LLMPolicy:
             return Action(thought, conclusion=sanitize(trigger, args, steps, cfg))
         if call["name"] not in {d["name"] for d in TOOL_DECLS}:
             raise PolicyError(f"unknown tool {call['name']!r}")
+        if call.get("signature"):
+            self.signatures[self._step_key(trigger, len(steps), call["name"], args)] = call["signature"]
         return Action(thought, call["name"], args)

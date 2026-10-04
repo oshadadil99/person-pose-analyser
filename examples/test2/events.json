@@ -1,0 +1,80 @@
+[
+  {
+    "event": "return_to_bed",
+    "start_time": "00:00:06",
+    "confirmed_time": "00:00:06",
+    "start_sec": 6.2,
+    "confirmed_sec": 6.2,
+    "previous_state": "standing",
+    "current_state": "lying_in_bed",
+    "confidence": 0.95,
+    "decision": "NORMAL",
+    "agent_trace_id": "trace_0001",
+    "note": "confirmed by agent"
+  },
+  {
+    "event": "bed_exit",
+    "start_time": "00:06:48",
+    "confirmed_time": "00:06:58",
+    "start_sec": 408.2,
+    "confirmed_sec": 418.2,
+    "previous_state": "sitting_on_bed",
+    "current_state": "standing",
+    "confidence": 0.69,
+    "decision": "MONITOR",
+    "agent_trace_id": null,
+    "note": ""
+  },
+  {
+    "event": "return_to_bed",
+    "start_time": "00:07:08",
+    "confirmed_time": "00:07:18",
+    "start_sec": 428.2,
+    "confirmed_sec": 438.2,
+    "previous_state": "standing",
+    "current_state": "sitting_on_bed",
+    "confidence": 0.61,
+    "decision": "NORMAL",
+    "agent_trace_id": null,
+    "note": ""
+  },
+  {
+    "event": "bed_exit",
+    "start_time": "00:07:42",
+    "confirmed_time": "00:07:45",
+    "start_sec": 462.2,
+    "confirmed_sec": 465.2,
+    "previous_state": "sitting_on_bed",
+    "current_state": "walking",
+    "confidence": 0.62,
+    "decision": "MONITOR",
+    "agent_trace_id": null,
+    "note": ""
+  },
+  {
+    "event": "return_to_bed",
+    "start_time": "00:10:04",
+    "confirmed_time": "00:10:04",
+    "start_sec": 604.4,
+    "confirmed_sec": 604.4,
+    "previous_state": "walking",
+    "current_state": "lying_in_bed",
+    "confidence": 0.95,
+    "decision": "NORMAL",
+    "agent_trace_id": "trace_0015",
+    "note": "confirmed by agent"
+  },
+  {
+    "event": "bed_exit",
+    "start_time": "00:11:18",
+    "confirmed_time": "00:11:21",
+    "start_sec": 677.6,
+    "confirmed_sec": 680.6,
+    "previous_state": "lying_in_bed",
+    "current_state": "walking",
+    "confidence": 0.95,
+    "decision": "MONITOR",
+    "agent_trace_id": "trace_0018",
+    "note": "confirmed by agent"
+  }
+]

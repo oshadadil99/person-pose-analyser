@@ -132,6 +132,9 @@ class GeminiCaller:
                     if e.code not in RETRY_CODES:
                         log.warning("%s failed with %s, trying the next model", model, e.code)
                         break
+                    if e.code == 429 and "PerDay" in str(e):     # daily quota: waiting won't help
+                        log.warning("%s: daily quota used up, trying the next model", model)
+                        break
                     log.warning("%s: %s, retrying", model, e.code)
                 except Exception as e:     # network problems etc.
                     log.warning("%s call failed: %s", model, type(e).__name__)

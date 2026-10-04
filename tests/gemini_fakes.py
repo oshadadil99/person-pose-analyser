@@ -13,6 +13,7 @@ class FakeModels:
 
     def generate_content(self, model, contents, config):
         self.calls.append((model, config))
+        self.contents = getattr(self, "contents", []) + [contents]
         if not self.responses:
             raise errors.APIError(503, {"error": {"message": "no more scripted responses"}})
         r = self.responses.pop(0)
@@ -30,8 +31,11 @@ def text(data) -> SimpleNamespace:
     return SimpleNamespace(text=data if isinstance(data, str) else json.dumps(data), function_calls=None)
 
 
-def call(name: str, **args) -> SimpleNamespace:
-    return SimpleNamespace(text=None, function_calls=[SimpleNamespace(name=name, args=args)])
+def call(name: str, signature: bytes | None = None, **args) -> SimpleNamespace:
+    """A function-call response. Gemini 3 also attaches a thought signature to the call part."""
+    part = SimpleNamespace(thought_signature=signature)
+    return SimpleNamespace(text=None, function_calls=[SimpleNamespace(name=name, args=args)],
+                           candidates=[SimpleNamespace(content=SimpleNamespace(parts=[part]))])
 
 
 def api_error(code: int) -> errors.APIError:

@@ -1,0 +1,78 @@
+{
+  "analysed_range_sec": [
+    0.0,
+    783.8
+  ],
+  "observation_duration_sec": 783.8,
+  "activity_duration_sec": {
+    "lying_in_bed": 377.2,
+    "sitting_on_bed": 132.0,
+    "sitting_outside_bed": 81.2,
+    "standing": 50.6,
+    "walking": 53.2,
+    "out_of_bed": 86.6,
+    "lying_outside_bed": 0.0,
+    "unknown": 3.0
+  },
+  "bed_exit_count": 3,
+  "bed_return_count": 3,
+  "total_in_bed_sec": 509.2,
+  "total_out_of_bed_sec": 274.6,
+  "unknown_sec": 3.0,
+  "longest_out_of_bed_period_sec": 142.2,
+  "final_state": "out_of_bed",
+  "human_readable": {
+    "total_observation_time": "13m 04s",
+    "activity_summary": {
+      "lying_in_bed": "6m 17s",
+      "sitting_on_bed": "2m 12s",
+      "sitting_outside_bed": "1m 21s",
+      "standing": "51s",
+      "walking": "53s",
+      "out_of_bed": "1m 27s",
+      "unknown": "3s"
+    },
+    "bed_summary": {
+      "time_in_bed": "8m 29s",
+      "time_out_of_bed": "4m 35s",
+      "bed_exit_count": 3
+    }
+  },
+  "out_of_bed_periods": [
+    {
+      "start": "00:00",
+      "end": "00:06",
+      "duration_sec": 6.2
+    },
+    {
+      "start": "06:48",
+      "end": "07:08",
+      "duration_sec": 20.0
+    },
+    {
+      "start": "07:42",
+      "end": "10:04",
+      "duration_sec": 142.2
+    },
+    {
+      "start": "11:18",
+      "end": "13:04",
+      "duration_sec": 106.2
+    }
+  ],
+  "overall_decision": "MONITOR",
+  "agent": {
+    "enabled": true,
+    "vlm_provider": "none",
+    "policy": "rules",
+    "investigations": 19,
+    "tool_calls": 40,
+    "outcomes": {
+      "confirmed": 3,
+      "noted": 14,
+      "resolved": 2
+    },
+    "vlm_stats": null,
+    "llm_policy_stats": null
+  }
+}

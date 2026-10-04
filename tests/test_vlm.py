@@ -72,6 +72,16 @@ def test_non_retryable_error_goes_straight_to_fallback(cfg, video):
     assert [m for m, _ in client.models.calls] == [cfg["vlm"]["model"], cfg["vlm"]["fallback_model"]]
 
 
+def test_daily_quota_skips_retries(cfg, video):
+    from google.genai import errors
+    daily = errors.APIError(429, {"error": {"message": "Quota exceeded for metric "
+                                            "generate_content_free_tier_requests, limit PerDay"}})
+    client = FakeClient([daily, text(GOOD)])
+    a = VLM(client, cfg, video)([1.0], "q")
+    assert a["model"] == cfg["vlm"]["fallback_model"]
+    assert len(client.models.calls) == 2                     # no pointless retries on the main model
+
+
 def test_total_failure_never_crashes_and_is_not_cached(cfg, video):
     vlm = VLM(FakeClient([]), cfg, video)                                    # every call fails
     a = vlm([1.0], "q")

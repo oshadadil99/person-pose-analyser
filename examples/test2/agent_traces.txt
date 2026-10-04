@@ -1,0 +1,233 @@
+trace_0001  [bed_event_check]  policy: rules
+  Observation: return_to_bed detected at 00:06 (standing -> lying_in_bed) but confidence is only 0.0.
+  Thought:     Current frames are not enough to be sure this is a real return_to_bed. Check what happened before.
+  Action:      look_back(t=6.2, seconds=10.0)
+  Finding:     unknown 3.0s, then walking 2.2s, then standing 1.0s
+  Thought:     Now check what happens after.
+  Action:      look_forward(t=6.2, seconds=15.0)
+  Finding:     lying_in_bed 15.0s
+  Thought:     Out of bed before, back in bed after: the sequence is clear.
+  Conclusion:  CONFIRMED (confidence 0.95): RETURN_TO_BED confirmed: before unknown 3.0s, then walking 2.2s, then standing 1.0s; after lying_in_bed 15.0s
+  Decision:    NORMAL
+
+trace_0002  [flicker]  policy: rules
+  Observation: State changed 6 times in 5s at 02:15-02:35.
+  Thought:     The per-frame rules kept changing their mind. What did smoothing settle on?
+  Action:      look_forward(t=134.6, seconds=20.0)
+  Finding:     lying_in_bed 20.0s
+  Thought:     Check the pose quality in this stretch.
+  Action:      get_pose_summary(t=134.6, seconds=20.0)
+  Finding:     visible 93% of the time, mean torso 64deg, keypoint confidence 0.95
+  Thought:     Smoothing already chose a state; nothing better to go on without the VLM.
+  Conclusion:  NOTED (confidence 0.5): smoothed result: lying_in_bed 20.0s; visible 93% of the time, mean torso 64deg, keypoint confidence 0.95
+  Decision:    NORMAL
+
+trace_0003  [flicker]  policy: rules
+  Observation: State changed 8 times in 5s at 02:45-02:55.
+  Thought:     The per-frame rules kept changing their mind. What did smoothing settle on?
+  Action:      look_forward(t=164.6, seconds=10.6)
+  Finding:     lying_in_bed 10.6s
+  Thought:     Check the pose quality in this stretch.
+  Action:      get_pose_summary(t=164.6, seconds=10.6)
+  Finding:     visible 100% of the time, mean torso 63deg, keypoint confidence 0.96
+  Thought:     Smoothing already chose a state; nothing better to go on without the VLM.
+  Conclusion:  NOTED (confidence 0.5): smoothed result: lying_in_bed 10.6s; visible 100% of the time, mean torso 63deg, keypoint confidence 0.96
+  Decision:    NORMAL
+
+trace_0004  [flicker]  policy: rules
+  Observation: State changed 7 times in 5s at 03:03-03:18.
+  Thought:     The per-frame rules kept changing their mind. What did smoothing settle on?
+  Action:      look_forward(t=183.4, seconds=14.8)
+  Finding:     lying_in_bed 14.8s
+  Thought:     Check the pose quality in this stretch.
+  Action:      get_pose_summary(t=183.4, seconds=14.8)
+  Finding:     visible 68% of the time, mean torso 57deg, keypoint confidence 0.95
+  Thought:     Smoothing already chose a state; nothing better to go on without the VLM.
+  Conclusion:  NOTED (confidence 0.5): smoothed result: lying_in_bed 14.8s; visible 68% of the time, mean torso 57deg, keypoint confidence 0.95
+  Decision:    NORMAL
+
+trace_0005  [unknown_stretch]  policy: rules
+  Observation: Activity unknown for 59s at 03:45-04:44.
+  Thought:     Why is this unknown: is the patient out of view, or just hard to read?
+  Action:      get_pose_summary(t=224.8, seconds=59.0)
+  Finding:     patient not visible at all in these 59s
+  Thought:     Check the state right before.
+  Action:      look_back(t=224.8, seconds=10.0)
+  Finding:     lying_in_bed 10.0s
+  Thought:     Check the state right after.
+  Action:      look_forward(t=283.8, seconds=10.0)
+  Finding:     lying_in_bed 10.0s
+  Thought:     In bed before and after, nobody seen getting up: still in bed, probably covered.
+  Conclusion:  RESOLVED -> LYING_IN_BED (confidence 0.45): in bed before (lying_in_bed) and after (lying_in_bed), 59s not readable
+  Decision:    NORMAL
+
+trace_0006  [flicker]  policy: rules
+  Observation: State changed 13 times in 5s at 05:18-05:30.
+  Thought:     The per-frame rules kept changing their mind. What did smoothing settle on?
+  Action:      look_forward(t=318.0, seconds=11.6)
+  Finding:     sitting_on_bed 11.6s
+  Thought:     Check the pose quality in this stretch.
+  Action:      get_pose_summary(t=318.0, seconds=11.6)
+  Finding:     visible 97% of the time, mean torso 9deg, keypoint confidence 0.92
+  Thought:     Smoothing already chose a state; nothing better to go on without the VLM.
+  Conclusion:  NOTED (confidence 0.5): smoothed result: sitting_on_bed 11.6s; visible 97% of the time, mean torso 9deg, keypoint confidence 0.92
+  Decision:    NORMAL
+
+trace_0007  [flicker]  policy: rules
+  Observation: State changed 8 times in 5s at 06:42-06:52.
+  Thought:     The per-frame rules kept changing their mind. What did smoothing settle on?
+  Action:      look_forward(t=402.4, seconds=10.0)
+  Finding:     sitting_on_bed 5.8s, then standing 4.2s
+  Thought:     Check the pose quality in this stretch.
+  Action:      get_pose_summary(t=402.4, seconds=10.0)
+  Finding:     visible 98% of the time, mean torso 9deg, keypoint confidence 0.94
+  Thought:     Smoothing already chose a state; nothing better to go on without the VLM.
+  Conclusion:  NOTED (confidence 0.5): smoothed result: sitting_on_bed 5.8s, then standing 4.2s; visible 98% of the time, mean torso 9deg, keypoint confidence 0.94
+  Decision:    NORMAL
+
+trace_0008  [flicker]  policy: rules
+  Observation: State changed 7 times in 5s at 07:02-07:12.
+  Thought:     The per-frame rules kept changing their mind. What did smoothing settle on?
+  Action:      look_forward(t=422.4, seconds=9.8)
+  Finding:     standing 5.8s, then sitting_on_bed 4.0s
+  Thought:     Check the pose quality in this stretch.
+  Action:      get_pose_summary(t=422.4, seconds=9.8)
+  Finding:     visible 100% of the time, mean torso 10deg, keypoint confidence 0.93
+  Thought:     Smoothing already chose a state; nothing better to go on without the VLM.
+  Conclusion:  NOTED (confidence 0.5): smoothed result: standing 5.8s, then sitting_on_bed 4.0s; visible 100% of the time, mean torso 10deg, keypoint confidence 0.93
+  Decision:    MONITOR
+
+trace_0009  [flicker]  policy: rules
+  Observation: State changed 7 times in 5s at 07:39-08:12.
+  Thought:     The per-frame rules kept changing their mind. What did smoothing settle on?
+  Action:      look_forward(t=459.4, seconds=33.0)
+  Finding:     sitting_on_bed 2.8s, then walking 1.0s, then standing 1.2s, then walking 2.8s, then standing 4.8s, then walking 12.2s, then standing 4.4s, then walking 2.2s, then out_of_bed 1.6s
+  Thought:     Check the pose quality in this stretch.
+  Action:      get_pose_summary(t=459.4, seconds=33.0)
+  Finding:     visible 93% of the time, mean torso 7deg, keypoint confidence 0.82
+  Thought:     Smoothing already chose a state; nothing better to go on without the VLM.
+  Conclusion:  NOTED (confidence 0.5): smoothed result: sitting_on_bed 2.8s, then walking 1.0s, then standing 1.2s, then walking 2.8s, then standing 4.8s, then walking 12.2s, then standing 4.4s, then walking 2.2s, then out_of_bed 1.6s; visible 93% of the time, mean torso 7deg, keypoint confidence 0.82
+  Decision:    MONITOR
+
+trace_0010  [flicker]  policy: rules
+  Observation: State changed 10 times in 5s at 08:14-08:24.
+  Thought:     The per-frame rules kept changing their mind. What did smoothing settle on?
+  Action:      look_forward(t=493.6, seconds=10.6)
+  Finding:     out_of_bed 2.0s, then walking 3.8s, then standing 1.4s, then sitting_outside_bed 3.4s
+  Thought:     Check the pose quality in this stretch.
+  Action:      get_pose_summary(t=493.6, seconds=10.6)
+  Finding:     visible 85% of the time, mean torso 13deg, keypoint confidence 0.87
+  Thought:     Smoothing already chose a state; nothing better to go on without the VLM.
+  Conclusion:  NOTED (confidence 0.5): smoothed result: out_of_bed 2.0s, then walking 3.8s, then standing 1.4s, then sitting_outside_bed 3.4s; visible 85% of the time, mean torso 13deg, keypoint confidence 0.87
+  Decision:    MONITOR
+
+trace_0011  [flicker]  policy: rules
+  Observation: State changed 10 times in 5s at 08:35-08:45.
+  Thought:     The per-frame rules kept changing their mind. What did smoothing settle on?
+  Action:      look_forward(t=514.6, seconds=10.8)
+  Finding:     sitting_outside_bed 3.4s, then standing 4.0s, then sitting_outside_bed 3.4s
+  Thought:     Check the pose quality in this stretch.
+  Action:      get_pose_summary(t=514.6, seconds=10.8)
+  Finding:     visible 100% of the time, mean torso 13deg, keypoint confidence 0.99
+  Thought:     Smoothing already chose a state; nothing better to go on without the VLM.
+  Conclusion:  NOTED (confidence 0.5): smoothed result: sitting_outside_bed 3.4s, then standing 4.0s, then sitting_outside_bed 3.4s; visible 100% of the time, mean torso 13deg, keypoint confidence 0.99
+  Decision:    MONITOR
+
+trace_0012  [flicker]  policy: rules
+  Observation: State changed 4 times in 5s at 08:53-09:00.
+  Thought:     The per-frame rules kept changing their mind. What did smoothing settle on?
+  Action:      look_forward(t=533.0, seconds=7.2)
+  Finding:     sitting_outside_bed 2.0s, then standing 3.2s, then sitting_outside_bed 2.0s
+  Thought:     Check the pose quality in this stretch.
+  Action:      get_pose_summary(t=533.0, seconds=7.2)
+  Finding:     visible 100% of the time, mean torso 17deg, keypoint confidence 1.00
+  Thought:     Smoothing already chose a state; nothing better to go on without the VLM.
+  Conclusion:  NOTED (confidence 0.5): smoothed result: sitting_outside_bed 2.0s, then standing 3.2s, then sitting_outside_bed 2.0s; visible 100% of the time, mean torso 17deg, keypoint confidence 1.00
+  Decision:    MONITOR
+
+trace_0013  [flicker]  policy: rules
+  Observation: State changed 6 times in 5s at 09:18-09:28.
+  Thought:     The per-frame rules kept changing their mind. What did smoothing settle on?
+  Action:      look_forward(t=558.4, seconds=9.8)
+  Finding:     out_of_bed 0.4s, then walking 7.8s, then out_of_bed 1.6s
+  Thought:     Check the pose quality in this stretch.
+  Action:      get_pose_summary(t=558.4, seconds=9.8)
+  Finding:     visible 78% of the time, mean torso 5deg, keypoint confidence 0.71
+  Thought:     Smoothing already chose a state; nothing better to go on without the VLM.
+  Conclusion:  NOTED (confidence 0.5): smoothed result: out_of_bed 0.4s, then walking 7.8s, then out_of_bed 1.6s; visible 78% of the time, mean torso 5deg, keypoint confidence 0.71
+  Decision:    MONITOR
+
+trace_0014  [flicker]  policy: rules
+  Observation: State changed 6 times in 5s at 09:40-09:50.
+  Thought:     The per-frame rules kept changing their mind. What did smoothing settle on?
+  Action:      look_forward(t=579.8, seconds=9.8)
+  Finding:     out_of_bed 4.4s, then walking 5.4s
+  Thought:     Check the pose quality in this stretch.
+  Action:      get_pose_summary(t=579.8, seconds=9.8)
+  Finding:     visible 51% of the time, mean torso 6deg, keypoint confidence 0.73
+  Thought:     Smoothing already chose a state; nothing better to go on without the VLM.
+  Conclusion:  NOTED (confidence 0.5): smoothed result: out_of_bed 4.4s, then walking 5.4s; visible 51% of the time, mean torso 6deg, keypoint confidence 0.73
+  Decision:    MONITOR
+
+trace_0015  [bed_event_check]  policy: rules
+  Observation: return_to_bed detected at 10:04 (walking -> lying_in_bed) but confidence is only 0.0.
+  Thought:     Current frames are not enough to be sure this is a real return_to_bed. Check what happened before.
+  Action:      look_back(t=604.4, seconds=10.0)
+  Finding:     out_of_bed 5.4s, then standing 3.0s, then walking 1.6s
+  Thought:     Now check what happens after.
+  Action:      look_forward(t=604.4, seconds=15.0)
+  Finding:     lying_in_bed 15.0s
+  Thought:     Out of bed before, back in bed after: the sequence is clear.
+  Conclusion:  CONFIRMED (confidence 0.95): RETURN_TO_BED confirmed: before out_of_bed 5.4s, then standing 3.0s, then walking 1.6s; after lying_in_bed 15.0s
+  Decision:    NORMAL
+
+trace_0016  [flicker]  policy: rules
+  Observation: State changed 13 times in 5s at 10:27-10:39.
+  Thought:     The per-frame rules kept changing their mind. What did smoothing settle on?
+  Action:      look_forward(t=626.8, seconds=12.2)
+  Finding:     lying_in_bed 2.2s, then sitting_on_bed 3.4s, then lying_in_bed 6.6s
+  Thought:     Check the pose quality in this stretch.
+  Action:      get_pose_summary(t=626.8, seconds=12.2)
+  Finding:     visible 75% of the time, mean torso 49deg, keypoint confidence 0.93
+  Thought:     Smoothing already chose a state; nothing better to go on without the VLM.
+  Conclusion:  NOTED (confidence 0.5): smoothed result: lying_in_bed 2.2s, then sitting_on_bed 3.4s, then lying_in_bed 6.6s; visible 75% of the time, mean torso 49deg, keypoint confidence 0.93
+  Decision:    NORMAL
+
+trace_0017  [unknown_stretch]  policy: rules
+  Observation: Activity unknown for 10s at 11:00-11:10.
+  Thought:     Why is this unknown: is the patient out of view, or just hard to read?
+  Action:      get_pose_summary(t=659.8, seconds=10.0)
+  Finding:     patient not visible at all in these 10s
+  Thought:     Check the state right before.
+  Action:      look_back(t=659.8, seconds=10.0)
+  Finding:     lying_in_bed 10.0s
+  Thought:     Check the state right after.
+  Action:      look_forward(t=669.8, seconds=10.0)
+  Finding:     lying_in_bed 7.8s, then walking 2.2s
+  Thought:     In bed before and after, nobody seen getting up: still in bed, probably covered.
+  Conclusion:  RESOLVED -> LYING_IN_BED (confidence 0.45): in bed before (lying_in_bed) and after (lying_in_bed), 10s not readable
+  Decision:    NORMAL
+
+trace_0018  [bed_event_check]  policy: rules
+  Observation: bed_exit detected at 11:18 (lying_in_bed -> walking) but confidence is only 0.36.
+  Thought:     Current frames are not enough to be sure this is a real bed_exit. Check what happened before.
+  Action:      look_back(t=677.6, seconds=10.0)
+  Finding:     unknown 2.2s, then lying_in_bed 7.8s
+  Thought:     Now check what happens after.
+  Action:      look_forward(t=677.6, seconds=15.0)
+  Finding:     walking 4.8s, then standing 4.8s, then walking 1.2s, then out_of_bed 4.2s
+  Thought:     In bed before, out of bed and moving away after: the sequence is clear.
+  Conclusion:  CONFIRMED (confidence 0.95): BED_EXIT confirmed: before unknown 2.2s, then lying_in_bed 7.8s; after walking 4.8s, then standing 4.8s, then walking 1.2s, then out_of_bed 4.2s
+  Decision:    MONITOR
+
+trace_0019  [flicker]  policy: rules
+  Observation: State changed 5 times in 5s at 11:33-11:42.
+  Thought:     The per-frame rules kept changing their mind. What did smoothing settle on?
+  Action:      look_forward(t=692.6, seconds=9.8)
+  Finding:     out_of_bed 1.6s, then walking 2.4s, then standing 1.0s, then walking 1.2s, then sitting_outside_bed 3.6s
+  Thought:     Check the pose quality in this stretch.
+  Action:      get_pose_summary(t=692.6, seconds=9.8)
+  Finding:     visible 94% of the time, mean torso 10deg, keypoint confidence 0.81
+  Thought:     Smoothing already chose a state; nothing better to go on without the VLM.
+  Conclusion:  NOTED (confidence 0.5): smoothed result: out_of_bed 1.6s, then walking 2.4s, then standing 1.0s, then walking 1.2s, then sitting_outside_bed 3.6s; visible 94% of the time, mean torso 10deg, keypoint confidence 0.81
+  Decision:    MONITOR

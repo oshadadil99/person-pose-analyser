@@ -27,7 +27,7 @@ from src.features import extract_features
 from src.frame_rules import classify_frames
 from src.patient import patient_per_frame, select_patient_ids, summarize_tracks
 from src.perception import load_perception, run_perception, save_perception
-from src.report import write_outputs
+from src.report import write_annotated_video, write_outputs
 from src.camera import find_camera_segments
 from src.scene import SceneTimeline, detect_scene, draw_scene, load_scenes, save_scenes
 from src.state_machine import build_timeline
@@ -85,6 +85,7 @@ def main() -> None:
     ap.add_argument("--no-agent", action="store_true", help="skip the investigator agent (for comparison)")
     ap.add_argument("--vlm", choices=["none", "aistudio", "vertex"], help="Gemini provider (default: config)")
     ap.add_argument("--policy", choices=["rules", "llm"], help="agent policy (default: config)")
+    ap.add_argument("--annotate", action="store_true", help="also write annotated.mp4 (skeleton, bed, state, decision)")
     args = ap.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -147,6 +148,8 @@ def main() -> None:
                         "vlm_stats": vlm.stats if vlm else None,
                         "llm_policy_stats": policy.caller.stats if isinstance(policy, LLMPolicy) else None}
     write_outputs(out, segments, summary, events, decisions, decision_tl, traces, feats, raw, final)
+    if args.annotate:
+        write_annotated_video(args.video, out / "annotated.mp4", frames, patient, scene, segments, decision_tl, cfg)
     print_report(segments, events, decisions, decision_tl, traces, summary, out)
 
 
@@ -157,6 +160,9 @@ def setup_gemini(args, cfg: dict, frames, patient):
     if args.policy:
         cfg["agent"]["policy"] = args.policy
     provider = cfg["vlm"]["provider"]
+    if provider == "vertex":   # model availability differs per provider (see config)
+        cfg["vlm"]["model"] = cfg["vlm"]["vertex_model"]
+        cfg["vlm"]["fallback_model"] = cfg["vlm"]["vertex_fallback_model"]
     try:
         client = make_client(provider)
     except RuntimeError as e:     # missing key / project in .env

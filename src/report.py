@@ -8,6 +8,7 @@
 - agent_traces.json / .txt  every agent investigation: observation, thoughts, tool calls, findings, conclusion
 - segments.json     the segments with confidence, for evaluation and later stages
 - frame_states.csv  every sampled frame: features, raw state, final state
+- annotated.mp4     optional (--annotate): skeleton, bed/seats, state and decision per frame
 """
 
 import csv
@@ -50,6 +51,59 @@ def write_outputs(out_dir: str | Path, segments: list[Segment], summary: dict, e
 
     if not feats:
         return
+    _write_frame_csv(out, feats, raw, final)
+
+
+LEVEL_COLOURS = {"NORMAL": (80, 200, 80), "MONITOR": (0, 200, 255), "ALERT": (40, 40, 255)}
+
+
+def write_annotated_video(video_path: str, out_path: str | Path, frames: list, patient: list, scenes,
+                          segments: list[Segment], decision_tl: list[tuple[float, float, str]], cfg: dict) -> None:
+    """annotated.mp4: bed/seat outlines, the patient's skeleton (others grey), state and decision.
+
+    Written at the sampling rate, so it plays faster than real time."""
+    import cv2
+    from src.perception import draw_person
+    from src.scene import draw_scene
+    from src.video_io import resize_to_width
+
+    def at(items, t):
+        return next((x for x in items if x[0] <= t < x[1]), items[-1])
+
+    by_idx = {f.frame_idx: (f, p) for f, p in zip(frames, patient)}
+    kp_min = cfg["features"]["kp_min_conf"]
+    cap = cv2.VideoCapture(str(video_path))
+    writer, idx = None, 0
+    while True:
+        ok, img = cap.read()
+        if not ok:
+            break
+        item = by_idx.get(idx)
+        idx += 1
+        if item is None:
+            continue
+        fr, p = item
+        img = draw_scene(img, scenes.at(fr.t_sec))
+        for person in fr.persons:
+            mine = p is not None and person.track_id == p.track_id
+            draw_person(img, person, (0, 255, 0) if mine else (150, 150, 150), kp_min)
+        seg = next((s for s in segments if s.start_sec <= fr.t_sec < s.end_sec), segments[-1])
+        level = at(decision_tl, fr.t_sec)[2]
+        img, _ = resize_to_width(img, cfg["sampling"]["max_width"])
+        cv2.rectangle(img, (0, 0), (img.shape[1], 40), (0, 0, 0), -1)
+        cv2.putText(img, f"{format_clock(fr.t_sec)}  {seg.state.value}", (10, 28),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+        cv2.putText(img, level, (img.shape[1] - 150, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.8, LEVEL_COLOURS[level], 2)
+        if writer is None:
+            h, w = img.shape[:2]
+            writer = cv2.VideoWriter(str(out_path), cv2.VideoWriter_fourcc(*"mp4v"), cfg["sampling"]["fps"], (w, h))
+        writer.write(img)
+    cap.release()
+    if writer:
+        writer.release()
+
+
+def _write_frame_csv(out: Path, feats, raw, final) -> None:
     with open(out / "frame_states.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         cols = list(asdict(feats[0]).keys())

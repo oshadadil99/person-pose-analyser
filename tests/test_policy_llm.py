@@ -56,6 +56,19 @@ def test_gemini_drives_the_loop(cfg):
     assert tr.conclusion.outcome == "confirmed" and tr.conclusion.confidence == 0.9
 
 
+def test_thought_signature_is_sent_back(cfg):
+    # Gemini 3 rejects a replayed function call that lost its thought signature
+    client = FakeClient([
+        call("look_back", signature=b"sig-1", t=20, seconds=10, thought="x"),
+        call("conclude", outcome="confirmed", state="NONE", confidence=0.9, reason="r", thought="y"),
+    ])
+    investigate(exit_trigger(), ctx_for(cfg), "t1", LLMPolicy(client, cfg))
+    second_request = client.models.contents[1]
+    replayed_call = second_request[1].parts[0]
+    assert replayed_call.function_call.name == "look_back"
+    assert replayed_call.thought_signature == b"sig-1"
+
+
 def test_answers_are_cached(cfg):
     script = [call("look_back", t=20, seconds=10, thought="x"),
               call("conclude", outcome="confirmed", state="NONE", confidence=0.9, reason="r", thought="y")]
