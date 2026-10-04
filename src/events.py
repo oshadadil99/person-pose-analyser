@@ -28,7 +28,7 @@ state; here any OUT_OF_BED that isn't after a confirmed exit becomes UNKNOWN.
 
 from dataclasses import dataclass
 
-from src.state_machine import Segment
+from src.state_machine import Segment, merge_segments
 from src.states import IN_BED_STATES, State
 from src.summary import format_clock
 
@@ -170,19 +170,13 @@ def detect_events(segments: list[Segment], cfg: dict) -> tuple[list[Event], list
 
 def _fix_out_of_bed(segments: list[Segment], exit_periods: list[tuple[float, float]]) -> list[Segment]:
     """OUT_OF_BED only counts after a confirmed exit; otherwise it is UNKNOWN. Re-merge neighbours."""
-    fixed: list[Segment] = []
+    fixed = []
     for s in segments:
         state = s.state
         if state == State.OUT_OF_BED and not any(a <= s.start_sec < b for a, b in exit_periods):
             state = State.UNKNOWN
-        if fixed and fixed[-1].state == state:
-            prev = fixed[-1]
-            w = prev.duration_sec + s.duration_sec
-            conf = (prev.confidence * prev.duration_sec + s.confidence * s.duration_sec) / w if w else 0.0
-            fixed[-1] = Segment(prev.start_sec, s.end_sec, state, round(conf, 2))
-        else:
-            fixed.append(Segment(s.start_sec, s.end_sec, state, s.confidence))
-    return fixed
+        fixed.append(Segment(s.start_sec, s.end_sec, state, s.confidence))
+    return merge_segments(fixed)
 
 
 def bed_status_segments(segments: list[Segment]) -> list[tuple[float, float, str]]:

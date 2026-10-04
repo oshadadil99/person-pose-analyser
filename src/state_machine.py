@@ -164,6 +164,22 @@ def to_segments(states: list[FrameState], start_sec: float, end_sec: float) -> l
     return segments
 
 
+def merge_segments(segments: list[Segment]) -> list[Segment]:
+    """Join neighbouring segments with the same state (duration-weighted confidence)."""
+    out: list[Segment] = []
+    for s in segments:
+        if s.duration_sec <= 0:
+            continue
+        if out and out[-1].state == s.state:
+            prev = out[-1]
+            w = prev.duration_sec + s.duration_sec
+            conf = (prev.confidence * prev.duration_sec + s.confidence * s.duration_sec) / w
+            out[-1] = Segment(prev.start_sec, s.end_sec, s.state, round(conf, 2))
+        else:
+            out.append(Segment(s.start_sec, s.end_sec, s.state, s.confidence))
+    return out
+
+
 def build_timeline(states: list[FrameState], feats: list[FrameFeatures], cfg: dict,
                    start_sec: float, end_sec: float) -> tuple[list[FrameState], list[Segment]]:
     """Run all four steps. Returns (final per-frame states, segments)."""

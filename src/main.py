@@ -15,7 +15,9 @@ from pathlib import Path
 
 import cv2
 
-from src.alerts import decision_timeline, evaluate_alerts, label_events, overall_level
+from src.agent.investigator import apply_to_events, apply_to_segments, run_agent
+from src.agent.tools import AgentContext
+from src.alerts import LEVELS, decision_timeline, evaluate_alerts, label_events, overall_level
 from src.config import load_config
 from src.events import detect_events, out_of_bed_periods
 from src.features import extract_features
@@ -26,6 +28,7 @@ from src.report import write_outputs
 from src.scene import detect_scene, draw_scene, load_scene, save_scene
 from src.state_machine import build_timeline
 from src.summary import build_summary, format_clock, format_duration, timeline_lines
+from src.triggers import find_triggers
 from src.video_io import get_video_info, read_frame_at, resize_to_width
 
 log = logging.getLogger("main")
@@ -69,6 +72,7 @@ def main() -> None:
     ap.add_argument("--start", type=float, default=0.0, help="analyse from this second")
     ap.add_argument("--end", type=float, help="analyse up to this second (default: end of video)")
     ap.add_argument("--rerun", action="store_true", help="recompute perception and scene even if cached")
+    ap.add_argument("--no-agent", action="store_true", help="skip the investigator agent (for comparison)")
     args = ap.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -86,11 +90,24 @@ def main() -> None:
         raise SystemExit(f"No frames between {start}s and {end}s")
 
     tracks = summarize_tracks(frames, scene.bed.polygon if scene.bed else None, cfg)
-    patient = patient_per_frame(frames, select_patient_ids(tracks, cfg))
+    patient_ids = select_patient_ids(tracks, cfg)
+    patient = patient_per_frame(frames, patient_ids)
     feats = extract_features(frames, patient, scene, cfg, frame_height=meta["height"])
     raw = classify_frames(feats, cfg)
     final, segments = build_timeline(raw, feats, cfg, start, end)
     events, segments = detect_events(segments, cfg)
+
+    # Investigator agent: look into the ambiguous moments, correct the timeline,
+    # then re-detect events on the corrected timeline.
+    traces = []
+    if cfg["agent"]["enabled"] and not args.no_agent:
+        triggers = find_triggers(segments, events, raw, feats, cfg)
+        ctx = AgentContext(segments, final, feats, frames, patient_ids, cfg, vlm=None)
+        traces = run_agent(triggers, ctx)
+        segments = apply_to_segments(segments, traces)
+        events, segments = detect_events(segments, cfg)
+        events = apply_to_events(events, traces, cfg["evaluation"]["event_tolerance_sec"])
+
     summary = build_summary(segments, start, end,
                             bed_exit_count=sum(e.event == "bed_exit" for e in events),
                             bed_return_count=sum(e.event == "return_to_bed" for e in events))
@@ -99,8 +116,17 @@ def main() -> None:
     label_events(events, cfg)
     decision_tl = decision_timeline(decisions, start, end)
     summary["overall_decision"] = overall_level(decisions)
-    write_outputs(out, segments, summary, events, decisions, decision_tl, feats, raw, final)
+    for tr in traces:   # the decision in force during each investigated moment
+        levels = [lvl for a, b, lvl in decision_tl if a <= tr.trigger.t_end and b > tr.trigger.t_start]
+        tr.decision = max(levels, key=LEVELS.index) if levels else "NORMAL"
+    summary["agent"] = {"investigations": len(traces), "tool_calls": sum(len(t.steps) for t in traces),
+                        "outcomes": {o: sum(t.conclusion.outcome == o for t in traces)
+                                     for o in sorted({t.conclusion.outcome for t in traces})}}
+    write_outputs(out, segments, summary, events, decisions, decision_tl, traces, feats, raw, final)
+    print_report(segments, events, decisions, decision_tl, traces, summary, out)
 
+
+def print_report(segments, events, decisions, decision_tl, traces, summary, out) -> None:
     print("\nTimeline (state, decision)")
     print("\n".join("  " + line for line in timeline_lines(segments, decision_tl)))
     print("\nBed events")
@@ -115,6 +141,11 @@ def main() -> None:
     for a, b, level in decision_tl:
         why = "; ".join(f"{d.rule}: {d.reason}" for d in decisions if d.start_sec <= a < d.end_sec)
         print(f"  {format_clock(a)} – {format_clock(b)}  {level:8s}{why or 'no rule fired'}")
+    print(f"\nAgent investigations: {len(traces)}")
+    for tr in traces:
+        c = tr.conclusion
+        print(f"  {tr.trace_id} {tr.trigger.kind:16s} {format_clock(tr.trigger.t_start)}  "
+              f"{c.outcome}{' -> ' + c.state.value if c.state else ''} ({len(tr.steps)} tool calls)")
     print("\nTime per state")
     for state, sec in summary["activity_duration_sec"].items():
         if sec > 0:

@@ -52,6 +52,7 @@ Useful options:
 
 - `--start 10 --end 48` analyse only part of the video
 - `--rerun` recompute the cached detections
+- `--no-agent` skip the investigator agent (to compare with and without it)
 - `--scene path/to/scene.json` use a hand-drawn bed instead of the detected one
   (draw it with `python tools/draw_bed_polygon.py --video ... --scene ...`)
 
@@ -63,6 +64,7 @@ Outputs in the output folder:
 | `bed_status.txt` | the coarse version: `IN_BED` / `OUT` / `UNKNOWN` |
 | `events.json` | bed exits and returns with start/confirmed time, states, confidence, decision |
 | `decisions.json` | NORMAL / MONITOR / ALERT: overall, each fired rule with reason, decision over time |
+| `agent_traces.txt` / `.json` | every agent investigation: observation, thought, action, finding, conclusion |
 | `summary.json` | time per state, time in/out of bed, exit/return counts, out-of-bed periods, final state |
 | `segments.json` | segments with confidence |
 | `frame_states.csv` | every sampled frame: measurements, raw state, final state |

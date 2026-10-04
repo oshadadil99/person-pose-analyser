@@ -99,16 +99,23 @@ state_machine:
 triggers:
   unknown_min_sec: 5.0       # UNKNOWN shorter than this is just noise, not worth investigating
   flicker_window_sec: 5.0
-  flicker_min_changes: 3     # 3+ state changes in 5 s means the rules can't decide
+  flicker_min_changes: 4     # 4+ raw state changes in 5 s means the rules can't decide
   near_edge_ratio: 0.15      # hip within 15% of a box height from the bed edge counts as "at the edge"
+  multi_person_min_sec: 3.0  # a second person this long is worth a look (caregiver?)
 
 agent:
+  enabled: true
   policy: rules              # rules | llm
-  max_tool_calls: 4          # hard cap; unresolved -> UNKNOWN + MONITOR
+  max_tool_calls: 4          # hard cap per investigation; unresolved -> leave as is, MONITOR
+  max_investigations: 30     # per video, most important triggers first
   look_back_sec: 10.0
   look_forward_sec: 15.0     # longer than look_back because an exit is only confirmed by walking away
   vlm_frames: 3              # frames sent per VLM question
-  min_confidence: 0.6        # below this the agent keeps looking instead of concluding
+  min_confidence: 0.6        # bed events below this get investigated; VLM answers below this are ignored
+  min_in_bed_before_sec: 2.0 # exit check: must have been in bed at least this long in the look-back window
+  out_share_confirm: 0.6     # exit check: at least 60% of the known look-forward time out of bed
+  max_fill_sec: 30.0         # unknown stretch with the same state before and after is filled if this short
+  max_fill_in_bed_sec: 300.0 # ...or this long if in bed on both sides (covered by a duvet, nobody got up)
 
 vlm:
   provider: vertex           # vertex | aistudio | none

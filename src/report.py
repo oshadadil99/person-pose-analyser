@@ -5,6 +5,7 @@
 - summary.json      durations and bed summary (seconds + "11m 42s" style)
 - events.json       bed exits and returns
 - decisions.json    NORMAL / MONITOR / ALERT: overall, each fired rule with its reason, and over time
+- agent_traces.json / .txt  every agent investigation: observation, thoughts, tool calls, findings, conclusion
 - segments.json     the segments with confidence, for evaluation and later stages
 - frame_states.csv  every sampled frame: features, raw state, final state
 """
@@ -23,10 +24,13 @@ from src.summary import format_clock, timeline_lines
 
 
 def write_outputs(out_dir: str | Path, segments: list[Segment], summary: dict, events: list[Event],
-                  decisions: list[Decision], decision_tl: list[tuple[float, float, str]],
+                  decisions: list[Decision], decision_tl: list[tuple[float, float, str]], traces: list,
                   feats: list[FrameFeatures], raw: list[FrameState], final: list[FrameState]) -> None:
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
+
+    (out / "agent_traces.json").write_text(json.dumps([t.to_dict() for t in traces], indent=2), encoding="utf-8")
+    (out / "agent_traces.txt").write_text("\n\n".join(t.to_text() for t in traces) + "\n", encoding="utf-8")
 
     (out / "decisions.json").write_text(json.dumps({
         "overall_decision": overall_level(decisions),
