@@ -14,6 +14,27 @@ On my 13-minute test recording: **89% per-second state accuracy, 98% in/out
 of bed**, every real bed exit and return found within 4 s, lying time
 measured within 3 s over 6 minutes. Details and failure cases below.
 
+## Deliverables at a glance
+
+| Deliverable | Where |
+|---|---|
+| Source code | [src/](src) (pipeline), [tools/](tools) (debug, labelling, ablation), [tests/](tests) (173 tests) |
+| Architecture diagram | [How it works](#how-it-works) below, and [docs/architecture.md](docs/architecture.md) (editable: [architecture.drawio](docs/architecture.drawio)) |
+| Instructions to run | [Setup](#setup) and [Usage](#usage) below |
+| Activity timeline | [examples/test2/timeline.txt](examples/test2/timeline.txt) |
+| Activity-duration summary | [examples/test2/summary.json](examples/test2/summary.json) |
+| Bed-exit / return events | [examples/test2/events.json](examples/test2/events.json) |
+| Alert decisions and agent traces | [examples/test2/decisions.json](examples/test2/decisions.json), [examples/test2/agent_traces.txt](examples/test2/agent_traces.txt) |
+| Alert-rule logic | [docs/alert_rules.md](docs/alert_rules.md) |
+| Evaluation results | [docs/evaluation.md](docs/evaluation.md) (analysis), [docs/evaluation_results.md](docs/evaluation_results.md) (tables, confusion matrices) |
+| Failure cases (6) | [docs/failure_cases.md](docs/failure_cases.md) |
+| Design decisions | [docs/decisions.md](docs/decisions.md) |
+| What I'd do with more time | [Limitations](#limitations-and-what-id-do-with-more-time) below |
+
+The example outputs come from my 13-minute test recording. The video itself
+isn't in the repo (it's of me in my bedroom); the labels are in
+[data/ground_truth/](data/ground_truth).
+
 ## How it works
 
 ```mermaid
@@ -73,7 +94,7 @@ python -m venv .venv
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
 
 pip install -r requirements.txt
-python -m pytest                # 171 tests, no video or API key needed
+python -m pytest                # 173 tests, no video or API key needed
 ```
 
 YOLO weights download automatically on the first run.
