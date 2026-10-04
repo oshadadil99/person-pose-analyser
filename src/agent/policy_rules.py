@@ -67,6 +67,13 @@ def _vlm_state(res: dict, cfg: dict) -> State | None:
     return state
 
 
+class RulePolicy:
+    name = "rules"
+
+    def next_action(self, trigger: Trigger, steps: list, cfg: dict) -> Action:
+        return next_action(trigger, steps, cfg)
+
+
 def next_action(trigger: Trigger, steps: list, cfg: dict) -> Action:
     plan = {"possible_fall": _possible_fall, "bed_event_check": _bed_event, "unknown_stretch": _unknown,
             "multiple_people": _people, "flicker": _flicker}[trigger.kind]

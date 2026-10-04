@@ -118,16 +118,21 @@ agent:
   max_fill_in_bed_sec: 300.0 # ...or this long if in bed on both sides (covered by a duvet, nobody got up)
 
 vlm:
-  provider: vertex           # vertex | aistudio | none
+  # aistudio = Gemini API key (GEMINI_API_KEY), vertex = GCP project, none = offline.
+  # Both online providers use the same models. Override per run with --vlm.
+  provider: vertex
   model: gemini-2.5-flash
-  fallback_model: gemini-2.5-flash-lite
+  fallback_model: gemini-2.5-flash-lite   # used when the main model keeps failing (rate limits, outages)
   temperature: 0.0           # same input should give the same answer
-  max_retries: 4             # backoff 2, 4, 8, 16 s on 429/503
+  max_retries: 4             # backoff 2, 4, 8, 16 s on 429/5xx before switching to the fallback model
+  fallback_retries: 2
   backoff_base_sec: 2.0
-  min_delay_sec: 1.0         # gap between calls to stay under rate limits
+  min_delay_sec: 1.0         # gap between calls to stay under rate limits (free tier is strict)
   image_max_width: 512       # enough for posture and bed/floor context, much cheaper than full frames
   jpeg_quality: 80
-  cache_dir: cache/vlm
+  mark_patient: true         # draw a box around the patient so the VLM knows who to look at (caregiver case)
+  cache_dir: cache/vlm       # answers cached by hash(frames + question + model): reruns cost nothing
+  llm_cache_dir: cache/llm   # same for the LLM policy's tool choices
 
 events:
   # Exit = in bed -> up -> moving away. "Moving away" = walking, sitting in a chair,

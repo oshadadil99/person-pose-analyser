@@ -53,6 +53,12 @@ Useful options:
 - `--start 10 --end 48` analyse only part of the video
 - `--rerun` recompute the cached detections
 - `--no-agent` skip the investigator agent (to compare with and without it)
+- `--vlm none|aistudio|vertex` Gemini provider (default in `configs/default.yaml`); `none` runs fully offline
+- `--policy rules|llm` how the agent picks its next tool: fixed rules, or Gemini via function calling
+
+Gemini is only used by the agent, for the few ambiguous moments. Answers are
+cached in `cache/`, so rerunning the same video costs no API calls. If Gemini
+isn't configured or fails, the run continues offline with a warning.
 - `--scene path/to/scene.json` use a hand-drawn bed instead of the detected one
   (draw it with `python tools/draw_bed_polygon.py --video ... --scene ...`)
 

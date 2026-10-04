@@ -10,7 +10,8 @@ For each trigger:
 
 Plain Python on purpose, no agent framework: the whole loop is the
 `investigate` function below. The policy is swappable: policy_rules.py
-(deterministic, offline) now, an LLM choosing the tools later.
+(deterministic, offline) or policy_llm.py (Gemini chooses the tools). Both
+see the same tools and the same budget.
 
 Every investigation is kept as a trace that reads like
 Observation -> Thought -> Action -> Finding -> ... -> Conclusion.
@@ -20,6 +21,7 @@ import logging
 from dataclasses import dataclass, field
 
 from src.agent import policy_rules
+from src.agent.policy_llm import PolicyError
 from src.agent.policy_rules import Conclusion
 from src.agent.tools import TOOLS, AgentContext
 from src.events import Event
@@ -50,11 +52,13 @@ class AgentTrace:
     conclusion: Conclusion | None = None
     final_thought: str = ""
     decision: str | None = None      # NORMAL / MONITOR / ALERT at that moment, filled after the alert engine
+    policy: str = "rules"
 
     def to_dict(self) -> dict:
         c = self.conclusion
         return {
             "trace_id": self.trace_id,
+            "policy": self.policy,
             "trigger": {"type": self.trigger.kind, "start": format_clock(self.trigger.t_start),
                         "end": format_clock(self.trigger.t_end), "observation": self.trigger.describe()},
             "steps": [{"thought": s.thought, "action": _call(s.tool, s.args), "finding": s.finding,
@@ -66,7 +70,7 @@ class AgentTrace:
 
     def to_text(self) -> str:
         c = self.conclusion
-        lines = [f"{self.trace_id}  [{self.trigger.kind}]",
+        lines = [f"{self.trace_id}  [{self.trigger.kind}]  policy: {self.policy}",
                  f"  Observation: {self.trigger.describe()}"]
         for s in self.steps:
             lines += [f"  Thought:     {s.thought}",
@@ -93,24 +97,35 @@ def _call(tool: str, args: dict) -> str:
     return f"{tool}(" + ", ".join(f"{k}={fmt(v)}" for k, v in args.items()) + ")"
 
 
-def investigate(trigger: Trigger, ctx: AgentContext, trace_id: str) -> AgentTrace:
-    trace = AgentTrace(trace_id, trigger)
+def investigate(trigger: Trigger, ctx: AgentContext, trace_id: str, policy=None) -> AgentTrace:
+    policy = policy or policy_rules.RulePolicy()
+    trace = AgentTrace(trace_id, trigger, policy=policy.name)
     max_calls = ctx.cfg["agent"]["max_tool_calls"]
     while True:
-        action = policy_rules.next_action(trigger, trace.steps, ctx.cfg)
+        try:
+            action = policy.next_action(trigger, trace.steps, ctx.cfg)
+        except PolicyError as e:
+            # LLM unavailable or misbehaving: redo this investigation with the rule policy.
+            log.warning("%s: LLM policy failed (%s), using rules", trace_id, e)
+            fallback = investigate(trigger, ctx, trace_id)
+            fallback.policy = "rules (llm failed)"
+            return fallback
         if action.tool is None:
             trace.conclusion, trace.final_thought = action.conclusion, action.thought
             break
         if len(trace.steps) >= max_calls:
             trace.conclusion = Conclusion("unresolved", f"tool budget ({max_calls}) used up without a clear answer")
             break
-        result = TOOLS[action.tool](ctx, **action.args)
+        try:
+            result = TOOLS[action.tool](ctx, **action.args)
+        except (TypeError, ValueError, KeyError) as e:     # bad arguments from the model: tell it, don't crash
+            result = {"error": str(e), "summary": f"tool error: {e}"}
         trace.steps.append(Step(action.thought, action.tool, action.args, result))
     return trace
 
 
-def run_agent(triggers: list[Trigger], ctx: AgentContext) -> list[AgentTrace]:
-    traces = [investigate(t, ctx, f"trace_{i + 1:04d}") for i, t in enumerate(triggers)]
+def run_agent(triggers: list[Trigger], ctx: AgentContext, policy=None) -> list[AgentTrace]:
+    traces = [investigate(t, ctx, f"trace_{i + 1:04d}", policy) for i, t in enumerate(triggers)]
     if traces:
         outcomes = {}
         for tr in traces:

@@ -16,7 +16,10 @@ from pathlib import Path
 import cv2
 
 from src.agent.investigator import apply_to_events, apply_to_segments, run_agent
+from src.agent.policy_llm import LLMPolicy
+from src.agent.policy_rules import RulePolicy
 from src.agent.tools import AgentContext
+from src.agent.vlm import VLM, make_client
 from src.alerts import LEVELS, decision_timeline, evaluate_alerts, label_events, overall_level
 from src.config import load_config
 from src.events import detect_events, out_of_bed_periods
@@ -73,9 +76,13 @@ def main() -> None:
     ap.add_argument("--end", type=float, help="analyse up to this second (default: end of video)")
     ap.add_argument("--rerun", action="store_true", help="recompute perception and scene even if cached")
     ap.add_argument("--no-agent", action="store_true", help="skip the investigator agent (for comparison)")
+    ap.add_argument("--vlm", choices=["none", "aistudio", "vertex"], help="Gemini provider (default: config)")
+    ap.add_argument("--policy", choices=["rules", "llm"], help="agent policy (default: config)")
     args = ap.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    for noisy in ("httpx", "google_genai"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
     cfg = load_config(args.config)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -99,11 +106,12 @@ def main() -> None:
 
     # Investigator agent: look into the ambiguous moments, correct the timeline,
     # then re-detect events on the corrected timeline.
-    traces = []
+    traces, vlm, policy = [], None, None
     if cfg["agent"]["enabled"] and not args.no_agent:
+        vlm, policy = setup_gemini(args, cfg, frames, patient)
         triggers = find_triggers(segments, events, raw, feats, cfg)
-        ctx = AgentContext(segments, final, feats, frames, patient_ids, cfg, vlm=None)
-        traces = run_agent(triggers, ctx)
+        ctx = AgentContext(segments, final, feats, frames, patient_ids, cfg, vlm=vlm)
+        traces = run_agent(triggers, ctx, policy)
         segments = apply_to_segments(segments, traces)
         events, segments = detect_events(segments, cfg)
         events = apply_to_events(events, traces, cfg["evaluation"]["event_tolerance_sec"])
@@ -119,11 +127,45 @@ def main() -> None:
     for tr in traces:   # the decision in force during each investigated moment
         levels = [lvl for a, b, lvl in decision_tl if a <= tr.trigger.t_end and b > tr.trigger.t_start]
         tr.decision = max(levels, key=LEVELS.index) if levels else "NORMAL"
-    summary["agent"] = {"investigations": len(traces), "tool_calls": sum(len(t.steps) for t in traces),
+    summary["agent"] = {"enabled": not args.no_agent and cfg["agent"]["enabled"],
+                        "vlm_provider": cfg["vlm"]["provider"] if vlm else "none",
+                        "policy": policy.name if policy else "rules",
+                        "investigations": len(traces), "tool_calls": sum(len(t.steps) for t in traces),
                         "outcomes": {o: sum(t.conclusion.outcome == o for t in traces)
-                                     for o in sorted({t.conclusion.outcome for t in traces})}}
+                                     for o in sorted({t.conclusion.outcome for t in traces})},
+                        "vlm_stats": vlm.stats if vlm else None,
+                        "llm_policy_stats": policy.caller.stats if isinstance(policy, LLMPolicy) else None}
     write_outputs(out, segments, summary, events, decisions, decision_tl, traces, feats, raw, final)
     print_report(segments, events, decisions, decision_tl, traces, summary, out)
+
+
+def setup_gemini(args, cfg: dict, frames, patient):
+    """Create the VLM and pick the agent policy. Falls back to offline with a warning."""
+    if args.vlm:
+        cfg["vlm"]["provider"] = args.vlm
+    if args.policy:
+        cfg["agent"]["policy"] = args.policy
+    provider = cfg["vlm"]["provider"]
+    try:
+        client = make_client(provider)
+    except RuntimeError as e:     # missing key / project in .env
+        log.warning("Gemini (%s) not available: %s Running offline.", provider, e)
+        client = None
+    if client is None:
+        if cfg["agent"]["policy"] == "llm":
+            log.warning("LLM policy needs Gemini; using the rule policy")
+        return None, RulePolicy()
+
+    boxes = {round(f.t_sec, 1): p.box for f, p in zip(frames, patient) if p is not None}
+
+    def patient_box_at(t: float):
+        near = [k for k in boxes if abs(k - t) <= 0.3]
+        return boxes[min(near, key=lambda k: abs(k - t))] if near else None
+
+    vlm = VLM(client, cfg, args.video, patient_box_at)
+    policy = LLMPolicy(client, cfg) if cfg["agent"]["policy"] == "llm" else RulePolicy()
+    log.info("Gemini via %s (%s), agent policy: %s", provider, cfg["vlm"]["model"], policy.name)
+    return vlm, policy
 
 
 def print_report(segments, events, decisions, decision_tl, traces, summary, out) -> None:
